@@ -1,0 +1,16 @@
+services:
+  agent-artifacts:
+    image: ghcr.io/mholtzscher/agent-artifacts:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      AGENT_ARTIFACTS_WRITE_KEY: ${AGENT_ARTIFACTS_WRITE_KEY:?set AGENT_ARTIFACTS_WRITE_KEY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      DATABASE_URL: file:/data/agent-artifacts.db
+      STORAGE_DIR: /data/files
+    volumes:
+      - agent-artifacts-data:/data
+
+volumes:
+  agent-artifacts-data:
