@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 
-import { makeConfig } from "../src/Config.js"
+import { makeConfig } from "../../src/config/Config.js"
 
 describe("configuration", () => {
   it.effect("requires the write key because write routes must fail closed", () =>

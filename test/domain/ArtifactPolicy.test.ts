@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { isArtifactListable, readDecisionForArtifact } from "../src/ArtifactPolicy.js"
-import type { Artifact } from "../src/Domain.js"
+import type { Artifact } from "../../src/domain/Artifact.js"
+import { isArtifactListable, readDecisionForArtifact } from "../../src/domain/ArtifactPolicy.js"
 
 const makeArtifact = (state: Artifact["state"]): Artifact => ({
   id: "artifact_1" as Artifact["id"],
@@ -10,7 +10,6 @@ const makeArtifact = (state: Artifact["state"]): Artifact => ({
   description: null,
   sourceType: "markdown",
   sourceFilename: "example.md",
-  sourcePath: "/tmp/example.md",
   sha256: "abc123",
   sizeBytes: 12,
   project: null,

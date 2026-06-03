@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 
-import { detectSourceType, inferTitle, slugBase } from "../src/ArtifactUtils.js"
+import { detectSourceType, inferTitle, slugBase } from "../../src/domain/ArtifactUtils.js"
 
 describe("Artifact utilities", () => {
   it("infers a title from a source filename when publishers do not provide one", () => {

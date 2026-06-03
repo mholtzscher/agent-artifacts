@@ -3,13 +3,13 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as fs from "node:fs/promises"
 
-import { isArtifactListable, readDecisionForArtifact } from "./ArtifactPolicy.js"
-import { detectSourceType, inferTitle, makeArtifactId, makeSlugCandidate, sha256Hex } from "./ArtifactUtils.js"
-import { AppConfigService } from "./Config.js"
-import type { Artifact, Slug } from "./Domain.js"
-import { renderArtifactPage, renderFeedPage } from "./Render.js"
-import { findArtifactBySlug, insertArtifact, listRecentArtifacts, slugExists } from "./Repository.js"
-import { readArtifactSource, sourcePathForArtifact, writeArtifactSource } from "./Storage.js"
+import { AppConfigService } from "../config/Config.js"
+import type { Artifact, Slug } from "../domain/Artifact.js"
+import { readDecisionForArtifact } from "../domain/ArtifactPolicy.js"
+import { ArtifactPublishing } from "../publishing/ArtifactPublishing.js"
+import { renderArtifactPage, renderFeedPage } from "../render/Render.js"
+import { ArtifactRepository } from "../repository/ArtifactRepository.js"
+import { ArtifactSourceStorage } from "../source-storage/ArtifactSourceStorage.js"
 
 const nullableField = (value: string | ReadonlyArray<string> | undefined): string | null => {
   const candidate = Array.isArray(value) ? value[0] : value
@@ -50,20 +50,10 @@ const publishFormSchema = Schema.Struct({
   generator: Schema.optional(Schema.String)
 })
 
-const makeUniqueSlug = (title: string) =>
-  Effect.gen(function*() {
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const slug = makeSlugCandidate(title)
-      if (!(yield* slugExists(slug))) {
-        return slug
-      }
-    }
-    return yield* Effect.fail(new Error("Could not generate a unique slug"))
-  })
-
 const publishArtifact = Effect.gen(function*() {
   yield* requireWriteKey
   const config = yield* AppConfigService
+  const publishing = yield* ArtifactPublishing
   const form = yield* HttpServerRequest.schemaBodyForm(publishFormSchema)
   const file = form.file[0]
   if (file === undefined) {
@@ -71,47 +61,29 @@ const publishArtifact = Effect.gen(function*() {
   }
 
   const sourceBytes = yield* Effect.tryPromise({ try: () => fs.readFile(file.path), catch: (cause) => cause })
-  const sourceType = yield* Effect.try({
-    try: () => detectSourceType(file.name, file.contentType),
-    catch: (cause) => cause
-  })
-  const id = makeArtifactId()
-  const title = inferTitle(file.name, form.title)
-  const slug = yield* makeUniqueSlug(title)
-  const createdAt = new Date().toISOString()
-  const sourcePath = sourcePathForArtifact(config, id, sourceType)
-
-  yield* writeArtifactSource(sourcePath, sourceBytes)
-  yield* insertArtifact({
-    id,
-    slug,
-    title,
-    description: nullableField(form.description),
-    sourceType,
+  const artifact = yield* publishing.publish({
+    sourceBytes,
     sourceFilename: file.name,
-    sourcePath,
-    sha256: sha256Hex(sourceBytes),
-    sizeBytes: sourceBytes.byteLength,
+    contentType: file.contentType,
+    title: form.title,
+    description: nullableField(form.description),
     project: nullableField(form.project),
     repoFullName: nullableField(form.repo),
     branch: nullableField(form.branch),
     commitSha: nullableField(form.commit_sha),
     dirty: booleanField(form.dirty),
     agent: nullableField(form.agent),
-    generator: nullableField(form.generator),
-    state: "active",
-    createdAt,
-    updatedAt: createdAt
+    generator: nullableField(form.generator)
   })
 
   return yield* HttpServerResponse.json({
-    id,
-    slug,
-    title,
-    sourceType,
-    artifactUrl: `${config.publicBaseUrl}/a/${slug}`,
-    sourceUrl: `${config.publicBaseUrl}/source/${slug}`,
-    createdAt
+    id: artifact.id,
+    slug: artifact.slug,
+    title: artifact.title,
+    sourceType: artifact.sourceType,
+    artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
+    sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
+    createdAt: artifact.createdAt
   }, { status: 201 })
 }).pipe(
   Effect.catchAll((error) =>
@@ -125,12 +97,19 @@ const slugPath = Schema.Struct({ slug: Schema.String.pipe(Schema.brand("Slug")) 
 
 const getSlugParam = Effect.map(HttpRouter.schemaPathParams(slugPath), (_) => _.slug)
 
-const getArtifactOrReadError = (slug: Slug) =>
+const getArtifactOr404 = (slug: Slug) =>
   Effect.gen(function*() {
-    const artifact = yield* findArtifactBySlug(slug)
+    const repository = yield* ArtifactRepository
+    const artifact = yield* repository.findArtifactBySlug(slug)
     if (artifact === null) {
       return yield* Effect.fail(HttpServerResponse.text("Artifact not found", { status: 404 }))
     }
+    return artifact
+  })
+
+const getReadableArtifact = (slug: Slug) =>
+  Effect.gen(function*() {
+    const artifact = yield* getArtifactOr404(slug)
     const decision = readDecisionForArtifact(artifact)
     if (decision._tag === "Withdrawn") {
       return yield* Effect.fail(HttpServerResponse.text("Artifact withdrawn", { status: 410 }))
@@ -153,14 +132,16 @@ const artifactJson = (artifact: Artifact) => ({
   dirty: artifact.dirty,
   agent: artifact.agent,
   generator: artifact.generator,
+  state: artifact.state,
   createdAt: artifact.createdAt,
   updatedAt: artifact.updatedAt
 })
 
 const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getArtifactOrReadError(slug)
-  const source = yield* readArtifactSource(artifact.sourcePath)
+  const artifact = yield* getReadableArtifact(slug)
+  const storage = yield* ArtifactSourceStorage
+  const source = yield* storage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
 }).pipe(
   Effect.catchAll((error) =>
@@ -172,8 +153,9 @@ const getSource = Effect.gen(function*() {
 
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getArtifactOrReadError(slug)
-  const source = yield* readArtifactSource(artifact.sourcePath)
+  const artifact = yield* getReadableArtifact(slug)
+  const storage = yield* ArtifactSourceStorage
+  const source = yield* storage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
 }).pipe(
   Effect.catchAll((error) =>
@@ -184,13 +166,15 @@ const getArtifactPage = Effect.gen(function*() {
 )
 
 const getFeedJson = Effect.gen(function*() {
-  const artifacts = yield* listRecentArtifacts(50)
-  return yield* HttpServerResponse.json({ artifacts: artifacts.filter(isArtifactListable).map(artifactJson) })
+  const repository = yield* ArtifactRepository
+  const artifacts = yield* repository.listRecentArtifacts(50)
+  return yield* HttpServerResponse.json({ artifacts: artifacts.map(artifactJson) })
 })
 
 const getHome = Effect.gen(function*() {
-  const artifacts = yield* listRecentArtifacts(50)
-  return HttpServerResponse.html(renderFeedPage(artifacts.filter(isArtifactListable)))
+  const repository = yield* ArtifactRepository
+  const artifacts = yield* repository.listRecentArtifacts(50)
+  return HttpServerResponse.html(renderFeedPage(artifacts))
 })
 
 export const AppRouter = HttpRouter.empty.pipe(

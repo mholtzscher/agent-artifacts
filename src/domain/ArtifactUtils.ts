@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import * as path from "node:path"
 
-import { ArtifactId, Slug, type SourceType } from "./Domain.js"
+import { ArtifactId, Slug, type SourceType } from "./Artifact.js"
 
 export const makeArtifactId = (): ArtifactId => ArtifactId.make(randomUUID())
 

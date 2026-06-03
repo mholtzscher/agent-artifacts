@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it"
 
-import { type Artifact } from "./Domain.js"
+import { type Artifact } from "../domain/Artifact.js"
 
 const markdown = new MarkdownIt({
   html: true,

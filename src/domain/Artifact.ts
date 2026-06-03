@@ -20,7 +20,6 @@ export const Artifact = Schema.Struct({
   description: Schema.NullOr(Schema.String),
   sourceType: SourceType,
   sourceFilename: Schema.String,
-  sourcePath: Schema.String,
   sha256: Schema.String,
   sizeBytes: Schema.Number,
   project: Schema.NullOr(Schema.String),

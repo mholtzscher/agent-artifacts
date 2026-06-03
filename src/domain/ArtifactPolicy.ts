@@ -1,4 +1,4 @@
-import type { Artifact } from "./Domain.js"
+import type { Artifact } from "./Artifact.js"
 
 export type ArtifactReadDecision =
   | { readonly _tag: "Accessible"; readonly artifact: Artifact }
