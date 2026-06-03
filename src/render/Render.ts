@@ -16,7 +16,7 @@ export const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
 
-const pageShell = (title: string, body: string) =>
+const pageShell = (title: string, body: string, options?: { readonly bodyClass?: string }) =>
   `<!doctype html>
 <html lang="en">
 <head>
@@ -32,9 +32,18 @@ const pageShell = (title: string, body: string) =>
     .metadata { color: color-mix(in srgb, CanvasText 70%, transparent); font-size: 0.92rem; }
     .source-frame { width: 100%; min-height: 70vh; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius: 12px; background: white; }
     pre, code { white-space: pre-wrap; }
+    .artifact-detail-page { height: 100vh; overflow: hidden; }
+    .artifact-shell { height: 100vh; overflow: hidden; }
+    .artifact-banner { height: 48px; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, transparent); background: Canvas; }
+    .artifact-back, .artifact-source-link { font-size: 0.875rem; white-space: nowrap; text-decoration: none; }
+    .artifact-back:hover, .artifact-source-link:hover { text-decoration: underline; }
+    .artifact-title { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 600; }
+    .artifact-preview { box-sizing: border-box; width: 100%; max-width: none; height: calc(100vh - 48px); margin: 0; padding: 0; overflow: auto; }
+    .artifact-preview > article { box-sizing: border-box; width: 100%; min-height: 100%; padding: 24px; }
+    .artifact-preview > .source-frame { display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; }
   </style>
 </head>
-<body>
+<body${options?.bodyClass === undefined ? "" : ` class="${escapeHtml(options.bodyClass)}"`}>
 ${body}
 </body>
 </html>`
@@ -46,15 +55,17 @@ export const renderArtifactPage = (artifact: Artifact, source: string): string =
 
   return pageShell(
     artifact.title,
-    `<main>
-    <p><a href="/">← Recent artifacts</a></p>
-    <h1>${escapeHtml(artifact.title)}</h1>
-    <p class="metadata">Published ${escapeHtml(artifact.createdAt)} · ${
-      escapeHtml(artifact.sourceType)
-    } · <a href="/source/${escapeHtml(artifact.slug)}">Source</a></p>
-    ${artifact.description === null ? "" : `<p>${escapeHtml(artifact.description)}</p>`}
-    ${rendered}
-  </main>`
+    `<div class="artifact-shell">
+    <header class="artifact-banner">
+      <a class="artifact-back" href="/">← Recent artifacts</a>
+      <h1 class="artifact-title">${escapeHtml(artifact.title)}</h1>
+      <a class="artifact-source-link" href="/source/${escapeHtml(artifact.slug)}">Source</a>
+    </header>
+    <main class="artifact-preview">
+      ${rendered}
+    </main>
+  </div>`,
+    { bodyClass: "artifact-detail-page" }
   )
 }
 
