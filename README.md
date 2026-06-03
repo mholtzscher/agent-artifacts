@@ -34,6 +34,17 @@ STORAGE_DIR=./data/files
 
 ## Run locally
 
+With direnv:
+
+```sh
+echo 'AGENT_ARTIFACTS_WRITE_KEY=ap_test' > .env
+direnv allow
+pnpm install
+pnpm start
+```
+
+Without direnv:
+
 ```sh
 pnpm install
 AGENT_ARTIFACTS_WRITE_KEY=ap_test pnpm start
