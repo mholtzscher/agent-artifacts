@@ -10,7 +10,4 @@ services:
       DATABASE_URL: file:/data/agent-artifacts.db
       STORAGE_DIR: /data/files
     volumes:
-      - agent-artifacts-data:/data
-
-volumes:
-  agent-artifacts-data:
+      - ${AGENT_ARTIFACTS_DATA_DIR:-./data}:/data
