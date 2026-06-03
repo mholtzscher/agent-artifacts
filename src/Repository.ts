@@ -149,7 +149,6 @@ export const listRecentArtifacts = (limit: number) =>
     const sql = yield* SqlClient.SqlClient
     const rows = yield* sql<ArtifactRow>`
       select * from artifacts
-      where state = 'active'
       order by created_at desc
       limit ${limit}
     `

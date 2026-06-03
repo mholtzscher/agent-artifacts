@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as fs from "node:fs/promises"
 
+import { isArtifactListable, readDecisionForArtifact } from "./ArtifactPolicy.js"
 import { detectSourceType, inferTitle, makeArtifactId, makeSlugCandidate, sha256Hex } from "./ArtifactUtils.js"
 import { AppConfigService } from "./Config.js"
 import type { Artifact, Slug } from "./Domain.js"
@@ -124,13 +125,17 @@ const slugPath = Schema.Struct({ slug: Schema.String.pipe(Schema.brand("Slug")) 
 
 const getSlugParam = Effect.map(HttpRouter.schemaPathParams(slugPath), (_) => _.slug)
 
-const getArtifactOr404 = (slug: Slug) =>
+const getArtifactOrReadError = (slug: Slug) =>
   Effect.gen(function*() {
     const artifact = yield* findArtifactBySlug(slug)
-    if (artifact === null || artifact.state !== "active") {
+    if (artifact === null) {
       return yield* Effect.fail(HttpServerResponse.text("Artifact not found", { status: 404 }))
     }
-    return artifact
+    const decision = readDecisionForArtifact(artifact)
+    if (decision._tag === "Withdrawn") {
+      return yield* Effect.fail(HttpServerResponse.text("Artifact withdrawn", { status: 410 }))
+    }
+    return decision.artifact
   })
 
 const artifactJson = (artifact: Artifact) => ({
@@ -154,7 +159,7 @@ const artifactJson = (artifact: Artifact) => ({
 
 const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getArtifactOr404(slug)
+  const artifact = yield* getArtifactOrReadError(slug)
   const source = yield* readArtifactSource(artifact.sourcePath)
   return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
 }).pipe(
@@ -167,7 +172,7 @@ const getSource = Effect.gen(function*() {
 
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getArtifactOr404(slug)
+  const artifact = yield* getArtifactOrReadError(slug)
   const source = yield* readArtifactSource(artifact.sourcePath)
   return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
 }).pipe(
@@ -180,12 +185,12 @@ const getArtifactPage = Effect.gen(function*() {
 
 const getFeedJson = Effect.gen(function*() {
   const artifacts = yield* listRecentArtifacts(50)
-  return yield* HttpServerResponse.json({ artifacts: artifacts.map(artifactJson) })
+  return yield* HttpServerResponse.json({ artifacts: artifacts.filter(isArtifactListable).map(artifactJson) })
 })
 
 const getHome = Effect.gen(function*() {
   const artifacts = yield* listRecentArtifacts(50)
-  return HttpServerResponse.html(renderFeedPage(artifacts))
+  return HttpServerResponse.html(renderFeedPage(artifacts.filter(isArtifactListable)))
 })
 
 export const AppRouter = HttpRouter.empty.pipe(
