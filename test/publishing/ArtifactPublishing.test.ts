@@ -38,7 +38,6 @@ describe("ArtifactPublishing", () => {
       listRecentArtifacts: () => Effect.succeed([])
     })
     const StorageTest = Layer.succeed(ArtifactSourceStorage, {
-      _tag: "AgentArtifacts/ArtifactSourceStorage" as const,
       writeSource: (id, _sourceType, bytes) => Effect.sync(() => written.push({ id, bytes })).pipe(Effect.asVoid),
       readSource: () => Effect.succeed(new Uint8Array()),
       removeSource: () => Effect.void
@@ -75,7 +74,6 @@ describe("ArtifactPublishing", () => {
       listRecentArtifacts: () => Effect.succeed([])
     })
     const StorageTest = Layer.succeed(ArtifactSourceStorage, {
-      _tag: "AgentArtifacts/ArtifactSourceStorage" as const,
       writeSource: (id) =>
         Effect.sync(() => {
           writtenId = id
