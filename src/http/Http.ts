@@ -140,8 +140,7 @@ const artifactJson = (artifact: Artifact) => ({
 const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
   const artifact = yield* getReadableArtifact(slug)
-  const storage = yield* ArtifactSourceStorage
-  const source = yield* storage.readSource(artifact.id, artifact.sourceType)
+  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
 }).pipe(
   Effect.catchAll((error) =>
@@ -154,8 +153,7 @@ const getSource = Effect.gen(function*() {
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
   const artifact = yield* getReadableArtifact(slug)
-  const storage = yield* ArtifactSourceStorage
-  const source = yield* storage.readSource(artifact.id, artifact.sourceType)
+  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
 }).pipe(
   Effect.catchAll((error) =>
