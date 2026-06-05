@@ -1,6 +1,6 @@
 import { HttpMiddleware, HttpServer } from "@effect/platform"
-import * as PlatformPath from "@effect/platform/Path"
 import { NodeContext, NodeFileSystem, NodeHttpServer, NodeRuntime } from "@effect/platform-node"
+import * as PlatformPath from "@effect/platform/Path"
 import { SqliteClient } from "@effect/sql-sqlite-node"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -9,7 +9,7 @@ import { createServer } from "node:http"
 import { AppConfigService, makeConfig } from "./config/Config.js"
 import { AppRouter } from "./http/Http.js"
 import { ArtifactPublishingLive } from "./publishing/ArtifactPublishing.js"
-import { ArtifactRepositoryLive, initializeDatabase } from "./repository/ArtifactRepository.js"
+import { ArtifactRepositoryLive } from "./repository/ArtifactRepository.js"
 import { ArtifactSourceStorage, ensureDataDirectories } from "./source-storage/ArtifactSourceStorage.js"
 
 const main = Effect.gen(function*() {
@@ -40,7 +40,6 @@ const main = Effect.gen(function*() {
     Layer.provide(ConfigLive)
   )
 
-  yield* initializeDatabase.pipe(Effect.provide(SqlLive))
   yield* Layer.launch(ServerLive)
 })
 

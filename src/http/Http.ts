@@ -1,10 +1,11 @@
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "@effect/platform"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as fs from "node:fs/promises"
 
 import { AppConfigService } from "../config/Config.js"
-import type { Artifact, Slug } from "../domain/Artifact.js"
+import { type Artifact, PublishResponse, type Slug } from "../domain/Artifact.js"
 import { readDecisionForArtifact } from "../domain/ArtifactPolicy.js"
 import { ArtifactPublishing } from "../publishing/ArtifactPublishing.js"
 import { renderArtifactPage, renderFeedPage } from "../render/Render.js"
@@ -76,15 +77,18 @@ const publishArtifact = Effect.gen(function*() {
     generator: nullableField(form.generator)
   })
 
-  return yield* HttpServerResponse.json({
-    id: artifact.id,
-    slug: artifact.slug,
-    title: artifact.title,
-    sourceType: artifact.sourceType,
-    artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
-    sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
-    createdAt: artifact.createdAt
-  }, { status: 201 })
+  return yield* HttpServerResponse.json(
+    PublishResponse.make({
+      id: artifact.id,
+      slug: artifact.slug,
+      title: artifact.title,
+      sourceType: artifact.sourceType,
+      artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
+      sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
+      createdAt: artifact.createdAt
+    }),
+    { status: 201 }
+  )
 }).pipe(
   Effect.catchAll((error) =>
     HttpServerResponse.isServerResponse(error)
@@ -101,10 +105,10 @@ const getArtifactOr404 = (slug: Slug) =>
   Effect.gen(function*() {
     const repository = yield* ArtifactRepository
     const artifact = yield* repository.findArtifactBySlug(slug)
-    if (artifact === null) {
+    if (Option.isNone(artifact)) {
       return yield* Effect.fail(HttpServerResponse.text("Artifact not found", { status: 404 }))
     }
-    return artifact
+    return artifact.value
   })
 
 const getReadableArtifact = (slug: Slug) =>

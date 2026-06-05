@@ -13,7 +13,7 @@ export type ArtifactState = Schema.Schema.Type<typeof ArtifactState>
 export const SourceType = Schema.Literal("markdown", "html")
 export type SourceType = Schema.Schema.Type<typeof SourceType>
 
-export const Artifact = Schema.Struct({
+export class Artifact extends Schema.Class<Artifact>("Artifact")({
   id: ArtifactId,
   slug: Slug,
   title: Schema.String,
@@ -32,10 +32,9 @@ export const Artifact = Schema.Struct({
   state: ArtifactState,
   createdAt: Schema.String,
   updatedAt: Schema.String
-})
-export type Artifact = Schema.Schema.Type<typeof Artifact>
+}) {}
 
-export const PublishResponse = Schema.Struct({
+export class PublishResponse extends Schema.Class<PublishResponse>("PublishResponse")({
   id: ArtifactId,
   slug: Slug,
   title: Schema.String,
@@ -43,8 +42,7 @@ export const PublishResponse = Schema.Struct({
   artifactUrl: Schema.String,
   sourceUrl: Schema.String,
   createdAt: Schema.String
-})
-export type PublishResponse = Schema.Schema.Type<typeof PublishResponse>
+}) {}
 
 export type WriteKey = string & Brand.Brand<"WriteKey">
 export const WriteKey = Brand.nominal<WriteKey>()

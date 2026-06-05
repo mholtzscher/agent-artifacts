@@ -1,5 +1,7 @@
+import { SqlError } from "@effect/sql/SqlError"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest"
 
 import type { Artifact } from "../../src/domain/Artifact.js"
@@ -31,17 +33,23 @@ describe("ArtifactPublishing", () => {
     const inserted: Array<Artifact> = []
     const written: Array<{ readonly id: Artifact["id"]; readonly bytes: Uint8Array }> = []
 
-    const RepositoryTest = Layer.succeed(ArtifactRepository, {
-      insertArtifact: (artifact) => Effect.sync(() => inserted.push(artifact)).pipe(Effect.asVoid),
-      findArtifactBySlug: () => Effect.succeed(null),
-      slugExists: () => Effect.succeed(false),
-      listRecentArtifacts: () => Effect.succeed([])
-    })
-    const StorageTest = Layer.succeed(ArtifactSourceStorage, {
-      writeSource: (id, _sourceType, bytes) => Effect.sync(() => written.push({ id, bytes })).pipe(Effect.asVoid),
-      readSource: () => Effect.succeed(new Uint8Array()),
-      removeSource: () => Effect.void
-    })
+    const RepositoryTest = Layer.succeed(
+      ArtifactRepository,
+      new ArtifactRepository({
+        insertArtifact: (artifact) => Effect.sync(() => inserted.push(artifact)).pipe(Effect.asVoid),
+        findArtifactBySlug: () => Effect.succeed(Option.none()),
+        slugExists: () => Effect.succeed(false),
+        listRecentArtifacts: () => Effect.succeed([])
+      })
+    )
+    const StorageTest = Layer.succeed(
+      ArtifactSourceStorage,
+      new ArtifactSourceStorage({
+        writeSource: (id, _sourceType, bytes) => Effect.sync(() => written.push({ id, bytes })).pipe(Effect.asVoid),
+        readSource: () => Effect.succeed(new Uint8Array()),
+        removeSource: () => Effect.void
+      })
+    )
     const TestLive = ArtifactPublishingLive.pipe(
       Layer.provide(RepositoryTest),
       Layer.provide(StorageTest)
@@ -67,23 +75,30 @@ describe("ArtifactPublishing", () => {
     let writtenId: Artifact["id"] | undefined
     let removedId: Artifact["id"] | undefined
 
-    const RepositoryTest = Layer.succeed(ArtifactRepository, {
-      insertArtifact: () => Effect.fail(new Error("insert failed")),
-      findArtifactBySlug: () => Effect.succeed(null),
-      slugExists: () => Effect.succeed(false),
-      listRecentArtifacts: () => Effect.succeed([])
-    })
-    const StorageTest = Layer.succeed(ArtifactSourceStorage, {
-      writeSource: (id) =>
-        Effect.sync(() => {
-          writtenId = id
-        }),
-      readSource: () => Effect.succeed(new Uint8Array()),
-      removeSource: (id) =>
-        Effect.sync(() => {
-          removedId = id
-        })
-    })
+    const RepositoryTest = Layer.succeed(
+      ArtifactRepository,
+      new ArtifactRepository({
+        insertArtifact: () =>
+          Effect.fail(new SqlError({ cause: new Error("insert failed"), message: "insert failed" })),
+        findArtifactBySlug: () => Effect.succeed(Option.none()),
+        slugExists: () => Effect.succeed(false),
+        listRecentArtifacts: () => Effect.succeed([])
+      })
+    )
+    const StorageTest = Layer.succeed(
+      ArtifactSourceStorage,
+      new ArtifactSourceStorage({
+        writeSource: (id) =>
+          Effect.sync(() => {
+            writtenId = id
+          }),
+        readSource: () => Effect.succeed(new Uint8Array()),
+        removeSource: (id) =>
+          Effect.sync(() => {
+            removedId = id
+          })
+      })
+    )
     const TestLive = ArtifactPublishingLive.pipe(
       Layer.provide(RepositoryTest),
       Layer.provide(StorageTest)

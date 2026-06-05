@@ -1,26 +1,28 @@
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 
-import { type Artifact, type Slug } from "../domain/Artifact.js"
+import { Artifact, type Slug } from "../domain/Artifact.js"
 import { detectSourceType, inferTitle, makeArtifactId, makeSlugCandidate, sha256Hex } from "../domain/ArtifactUtils.js"
 import { ArtifactRepository } from "../repository/ArtifactRepository.js"
 import { ArtifactSourceStorage } from "../source-storage/ArtifactSourceStorage.js"
 
-export interface PublishArtifactInput {
-  readonly sourceBytes: Uint8Array
-  readonly sourceFilename: string
-  readonly contentType?: string | undefined
-  readonly title?: string | undefined
-  readonly description: string | null
-  readonly project: string | null
-  readonly repoFullName: string | null
-  readonly branch: string | null
-  readonly commitSha: string | null
-  readonly dirty: boolean
-  readonly agent: string | null
-  readonly generator: string | null
-}
+export const PublishArtifactInput = Schema.Struct({
+  sourceBytes: Schema.Uint8ArrayFromSelf,
+  sourceFilename: Schema.String,
+  contentType: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  description: Schema.NullOr(Schema.String),
+  project: Schema.NullOr(Schema.String),
+  repoFullName: Schema.NullOr(Schema.String),
+  branch: Schema.NullOr(Schema.String),
+  commitSha: Schema.NullOr(Schema.String),
+  dirty: Schema.Boolean,
+  agent: Schema.NullOr(Schema.String),
+  generator: Schema.NullOr(Schema.String)
+})
+export type PublishArtifactInput = Schema.Schema.Type<typeof PublishArtifactInput>
 
 export class ArtifactPublishing extends Context.Tag("AgentArtifacts/ArtifactPublishing")<
   ArtifactPublishing,
@@ -49,36 +51,37 @@ export const ArtifactPublishingLive = Layer.effect(
     return {
       publish: (input) =>
         Effect.gen(function*() {
+          const publishInput = yield* Schema.decodeUnknown(PublishArtifactInput)(input)
           const sourceType = yield* Effect.try({
-            try: () => detectSourceType(input.sourceFilename, input.contentType),
+            try: () => detectSourceType(publishInput.sourceFilename, publishInput.contentType),
             catch: (cause) => cause
           })
           const id = makeArtifactId()
-          const title = inferTitle(input.sourceFilename, input.title)
+          const title = inferTitle(publishInput.sourceFilename, publishInput.title)
           const slug = yield* makeUniqueSlug(title, repository.slugExists)
           const createdAt = new Date().toISOString()
-          const artifact: Artifact = {
+          const artifact = Artifact.make({
             id,
             slug,
             title,
-            description: input.description,
+            description: publishInput.description,
             sourceType,
-            sourceFilename: input.sourceFilename,
-            sha256: sha256Hex(input.sourceBytes),
-            sizeBytes: input.sourceBytes.byteLength,
-            project: input.project,
-            repoFullName: input.repoFullName,
-            branch: input.branch,
-            commitSha: input.commitSha,
-            dirty: input.dirty,
-            agent: input.agent,
-            generator: input.generator,
+            sourceFilename: publishInput.sourceFilename,
+            sha256: sha256Hex(publishInput.sourceBytes),
+            sizeBytes: publishInput.sourceBytes.byteLength,
+            project: publishInput.project,
+            repoFullName: publishInput.repoFullName,
+            branch: publishInput.branch,
+            commitSha: publishInput.commitSha,
+            dirty: publishInput.dirty,
+            agent: publishInput.agent,
+            generator: publishInput.generator,
             state: "active",
             createdAt,
             updatedAt: createdAt
-          }
+          })
 
-          yield* storage.writeSource(id, sourceType, input.sourceBytes)
+          yield* storage.writeSource(id, sourceType, publishInput.sourceBytes)
           yield* repository.insertArtifact(artifact).pipe(
             Effect.tapError(() => storage.removeSource(id, sourceType))
           )
