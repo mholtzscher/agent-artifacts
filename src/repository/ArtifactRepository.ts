@@ -3,14 +3,14 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { Artifact, type Slug } from "../domain/Artifact.js"
+import { Artifact, ArtifactState, type Slug, SourceType } from "../domain/Artifact.js"
 
 const ArtifactRow = Schema.Struct({
   id: Schema.String,
   slug: Schema.String,
   title: Schema.String,
   description: Schema.NullOr(Schema.String),
-  source_type: Schema.String,
+  source_type: SourceType,
   source_filename: Schema.String,
   sha256: Schema.String,
   size_bytes: Schema.Number,
@@ -18,10 +18,10 @@ const ArtifactRow = Schema.Struct({
   repo_full_name: Schema.NullOr(Schema.String),
   branch: Schema.NullOr(Schema.String),
   commit_sha: Schema.NullOr(Schema.String),
-  dirty: Schema.Number,
+  dirty: Schema.Literal(0, 1),
   agent: Schema.NullOr(Schema.String),
   generator: Schema.NullOr(Schema.String),
-  state: Schema.String,
+  state: ArtifactState,
   created_at: Schema.String,
   updated_at: Schema.String
 })
@@ -72,72 +72,17 @@ const ArtifactFromRow = Schema.transform(ArtifactRow, Artifact, {
   strict: false
 })
 
-export const initializeDatabase = Effect.gen(function*() {
-  const sql = yield* SqlClient.SqlClient
-  yield* sql.unsafe(`
-    create table if not exists artifacts (
-      id text primary key,
-      slug text not null unique,
-      title text not null,
-      description text,
-      source_type text not null,
-      source_filename text not null,
-      sha256 text not null,
-      size_bytes integer not null,
-      project text,
-      repo_full_name text,
-      branch text,
-      commit_sha text,
-      dirty integer not null default 0,
-      agent text,
-      generator text,
-      state text not null default 'active',
-      created_at text not null,
-      updated_at text not null
-    )
-  `)
-  const columns = yield* sql<{ readonly name: string }>`pragma table_info(artifacts)`
-  if (columns.some((column) => column.name === "source_path")) {
-    yield* sql.unsafe("alter table artifacts drop column source_path")
-  }
-  yield* sql.unsafe("create index if not exists artifacts_created_at_idx on artifacts(created_at desc)")
-  yield* sql.unsafe("create index if not exists artifacts_state_idx on artifacts(state)")
-})
-
 export class ArtifactRepository extends Effect.Service<ArtifactRepository>()(
   "AgentArtifacts/ArtifactRepository",
   {
     accessors: true,
     effect: Effect.gen(function*() {
       const sql = yield* SqlClient.SqlClient
-      yield* initializeDatabase
 
       return {
         insertArtifact: Effect.fn("ArtifactRepository.insertArtifact")(function*(artifact: Artifact) {
-          yield* sql`
-            insert into artifacts ${
-            sql.insert({
-              id: artifact.id,
-              slug: artifact.slug,
-              title: artifact.title,
-              description: artifact.description,
-              source_type: artifact.sourceType,
-              source_filename: artifact.sourceFilename,
-              sha256: artifact.sha256,
-              size_bytes: artifact.sizeBytes,
-              project: artifact.project,
-              repo_full_name: artifact.repoFullName,
-              branch: artifact.branch,
-              commit_sha: artifact.commitSha,
-              dirty: artifact.dirty ? 1 : 0,
-              agent: artifact.agent,
-              generator: artifact.generator,
-              state: artifact.state,
-              created_at: artifact.createdAt,
-              updated_at: artifact.updatedAt
-            })
-          }
-          `
+          const row = yield* Schema.encode(ArtifactFromRow)(artifact)
+          yield* sql`insert into artifacts ${sql.insert(row)}`
         }),
 
         findArtifactBySlug: Effect.fn("ArtifactRepository.findArtifactBySlug")(function*(slug: Slug) {

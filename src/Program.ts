@@ -9,6 +9,7 @@ import { createServer } from "node:http"
 import { AppConfigService, makeConfig } from "./config/Config.js"
 import { AppRouter } from "./http/Http.js"
 import { ArtifactPublishingLive } from "./publishing/ArtifactPublishing.js"
+import { runArtifactMigrations } from "./repository/ArtifactDatabase.js"
 import { ArtifactRepositoryLive } from "./repository/ArtifactRepository.js"
 import { ArtifactSourceStorage, ensureDataDirectories } from "./source-storage/ArtifactSourceStorage.js"
 
@@ -19,6 +20,11 @@ const main = Effect.gen(function*() {
 
   const ConfigLive = Layer.succeed(AppConfigService, config)
   const SqlLive = SqliteClient.layer({ filename: config.databasePath })
+  yield* runArtifactMigrations.pipe(
+    Effect.provide(SqlLive),
+    Effect.provide(StoragePlatformLive),
+    Effect.provide(NodeContext.layer)
+  )
 
   const DataLive = Layer.merge(ArtifactRepositoryLive, ArtifactSourceStorage.Default)
   const AppLive = Layer.merge(
@@ -26,7 +32,6 @@ const main = Effect.gen(function*() {
     ArtifactPublishingLive.pipe(Layer.provide(DataLive))
   ).pipe(
     Layer.provide(SqlLive),
-    Layer.provide(ConfigLive),
     Layer.provide(StoragePlatformLive)
   )
 
@@ -36,7 +41,6 @@ const main = Effect.gen(function*() {
     Layer.provide(NodeHttpServer.layer(() => createServer(), { port: config.port })),
     Layer.provide(NodeContext.layer),
     Layer.provide(AppLive),
-    Layer.provide(SqlLive),
     Layer.provide(ConfigLive)
   )
 
