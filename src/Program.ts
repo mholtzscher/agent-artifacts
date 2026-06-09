@@ -12,6 +12,7 @@ import { ArtifactPublishingLive } from "./publishing/ArtifactPublishing.js"
 import { runArtifactMigrations } from "./repository/ArtifactDatabase.js"
 import { ArtifactRepositoryLive } from "./repository/ArtifactRepository.js"
 import { ArtifactSourceStorage, ensureDataDirectories } from "./source-storage/ArtifactSourceStorage.js"
+import { TelemetryLive } from "./telemetry/Telemetry.js"
 
 const main = Effect.gen(function*() {
   const config = yield* makeConfig(process.env)
@@ -47,4 +48,4 @@ const main = Effect.gen(function*() {
   yield* Layer.launch(ServerLive)
 })
 
-NodeRuntime.runMain(main)
+NodeRuntime.runMain(main.pipe(Effect.provide(TelemetryLive)))

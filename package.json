@@ -27,11 +27,15 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@effect/opentelemetry": "^0.63.0",
     "@effect/platform": "^0.96.1",
     "@effect/platform-node": "^0.107.0",
     "@effect/sql": "^0.51.1",
     "@effect/sql-sqlite-node": "^0.52.0",
-    "effect": "^3.21.2",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
+    "@opentelemetry/sdk-trace-base": "^2.7.1",
+    "@opentelemetry/sdk-trace-node": "^2.7.1",
+    "effect": "^3.21.3",
     "markdown-it": "^14.2.0"
   },
   "devDependencies": {
@@ -47,7 +51,7 @@
     "@eslint/eslintrc": "3.3.5",
     "@eslint/js": "10.0.1",
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.2",
     "@typescript-eslint/eslint-plugin": "^8.60.1",
     "@typescript-eslint/parser": "^8.60.1",
     "babel-plugin-annotate-pure-calls": "^0.5.0",
