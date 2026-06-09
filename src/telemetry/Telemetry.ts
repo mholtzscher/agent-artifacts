@@ -1,5 +1,7 @@
 import * as NodeSdk from "@effect/opentelemetry/NodeSdk"
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs"
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
@@ -19,7 +21,8 @@ export const TelemetryLive = Layer.unwrapEffect(
           "deployment.environment.name": deploymentEnvironment
         }
       },
-      spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter())
+      spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter()),
+      logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter())
     }))
   })
 )
