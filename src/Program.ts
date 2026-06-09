@@ -45,6 +45,7 @@ const main = Effect.gen(function*() {
     Layer.provide(ConfigLive)
   )
 
+  yield* Effect.log("agent-artifacts booted")
   yield* Layer.launch(ServerLive)
 })
 
