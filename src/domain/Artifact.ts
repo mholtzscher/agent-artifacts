@@ -1,4 +1,3 @@
-import * as Brand from "effect/Brand"
 import * as Schema from "effect/Schema"
 
 export const ArtifactId = Schema.String.pipe(Schema.brand("ArtifactId"))
@@ -43,6 +42,3 @@ export class PublishResponse extends Schema.Class<PublishResponse>("PublishRespo
   sourceUrl: Schema.String,
   createdAt: Schema.String
 }) {}
-
-export type WriteKey = string & Brand.Brand<"WriteKey">
-export const WriteKey = Brand.nominal<WriteKey>()

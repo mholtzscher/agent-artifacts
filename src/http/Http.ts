@@ -1,6 +1,7 @@
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "@effect/platform"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as fs from "node:fs/promises"
 
@@ -30,7 +31,7 @@ const requireWriteKey = Effect.gen(function*() {
   if (provided === undefined) {
     return yield* Effect.fail(HttpServerResponse.text("Missing write key", { status: 401 }))
   }
-  if (provided !== config.writeKey) {
+  if (provided !== Redacted.value(config.writeKey)) {
     return yield* Effect.fail(HttpServerResponse.text("Invalid write key", { status: 403 }))
   }
 })

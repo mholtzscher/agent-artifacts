@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { createServer } from "node:http"
 
-import { AppConfigService, makeConfig } from "./config/Config.js"
+import { AppConfigLive, AppConfigService } from "./config/Config.js"
 import { AppRouter } from "./http/Http.js"
 import { ArtifactPublishingLive } from "./publishing/ArtifactPublishing.js"
 import { runArtifactMigrations } from "./repository/ArtifactDatabase.js"
@@ -15,7 +15,7 @@ import { ArtifactSourceStorage, ensureDataDirectories } from "./source-storage/A
 import { TelemetryLive } from "./telemetry/Telemetry.js"
 
 const main = Effect.gen(function*() {
-  const config = yield* makeConfig(process.env)
+  const config = yield* AppConfigService.pipe(Effect.provide(AppConfigLive))
   const StoragePlatformLive = Layer.merge(NodeFileSystem.layer, PlatformPath.layer)
   yield* ensureDataDirectories(config).pipe(Effect.provide(StoragePlatformLive))
 
