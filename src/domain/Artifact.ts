@@ -12,6 +12,11 @@ export type ArtifactState = Schema.Schema.Type<typeof ArtifactState>
 export const SourceType = Schema.Literal("markdown", "html")
 export type SourceType = Schema.Schema.Type<typeof SourceType>
 
+export class UnsupportedSourceTypeError extends Schema.TaggedError<UnsupportedSourceTypeError>()(
+  "UnsupportedSourceTypeError",
+  { filename: Schema.String }
+) {}
+
 export class Artifact extends Schema.Class<Artifact>("Artifact")({
   id: ArtifactId,
   slug: Slug,

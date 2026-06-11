@@ -1,7 +1,8 @@
+import * as Either from "effect/Either"
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import * as path from "node:path"
 
-import { ArtifactId, Slug, type SourceType } from "./Artifact.js"
+import { ArtifactId, Slug, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js"
 
 export const makeArtifactId = (): ArtifactId => ArtifactId.make(randomUUID())
 
@@ -16,15 +17,18 @@ export const inferTitle = (filename: string, provided?: string | undefined): str
   return basename.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || "Untitled artifact"
 }
 
-export const detectSourceType = (filename: string, contentType?: string | undefined): SourceType => {
+export const detectSourceType = (
+  filename: string,
+  contentType?: string | undefined
+): Either.Either<SourceType, UnsupportedSourceTypeError> => {
   const extension = path.extname(filename).toLowerCase()
   if (extension === ".md" || extension === ".markdown" || contentType === "text/markdown") {
-    return "markdown"
+    return Either.right("markdown")
   }
   if (extension === ".html" || extension === ".htm" || contentType === "text/html") {
-    return "html"
+    return Either.right("html")
   }
-  throw new Error("Unsupported source type. MVP supports Markdown and HTML source.")
+  return Either.left(new UnsupportedSourceTypeError({ filename }))
 }
 
 export const slugBase = (title: string): string => {

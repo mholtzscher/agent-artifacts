@@ -1,13 +1,11 @@
-import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "@effect/platform"
+import { FileSystem, HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "@effect/platform"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
-import * as fs from "node:fs/promises"
 
 import { AppConfigService } from "../config/Config.js"
-import { type Artifact, PublishResponse, type Slug } from "../domain/Artifact.js"
-import { readDecisionForArtifact } from "../domain/ArtifactPolicy.js"
+import { type Artifact, PublishResponse, Slug } from "../domain/Artifact.js"
 import { ArtifactPublishing } from "../publishing/ArtifactPublishing.js"
 import { renderArtifactPage, renderFeedPage } from "../render/Render.js"
 import { ArtifactRepository } from "../repository/ArtifactRepository.js"
@@ -59,10 +57,11 @@ const publishArtifact = Effect.gen(function*() {
   const form = yield* HttpServerRequest.schemaBodyForm(publishFormSchema)
   const file = form.file[0]
   if (file === undefined) {
-    return yield* Effect.succeed(HttpServerResponse.text("Missing file", { status: 400 }))
+    return HttpServerResponse.text("Missing file", { status: 400 })
   }
 
-  const sourceBytes = yield* Effect.tryPromise({ try: () => fs.readFile(file.path), catch: (cause) => cause })
+  const fs = yield* FileSystem.FileSystem
+  const sourceBytes = yield* fs.readFile(file.path)
   const artifact = yield* publishing.publish({
     sourceBytes,
     sourceFilename: file.name,
@@ -91,14 +90,13 @@ const publishArtifact = Effect.gen(function*() {
     { status: 201 }
   )
 }).pipe(
-  Effect.catchAll((error) =>
-    HttpServerResponse.isServerResponse(error)
-      ? Effect.succeed(error)
-      : Effect.succeed(HttpServerResponse.text(String(error), { status: 400 }))
+  Effect.catchTag(
+    "UnsupportedSourceTypeError",
+    () => HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
   )
 )
 
-const slugPath = Schema.Struct({ slug: Schema.String.pipe(Schema.brand("Slug")) })
+const slugPath = Schema.Struct({ slug: Slug })
 
 const getSlugParam = Effect.map(HttpRouter.schemaPathParams(slugPath), (_) => _.slug)
 
@@ -115,11 +113,10 @@ const getArtifactOr404 = (slug: Slug) =>
 const getReadableArtifact = (slug: Slug) =>
   Effect.gen(function*() {
     const artifact = yield* getArtifactOr404(slug)
-    const decision = readDecisionForArtifact(artifact)
-    if (decision._tag === "Withdrawn") {
+    if (artifact.state === "withdrawn") {
       return yield* Effect.fail(HttpServerResponse.text("Artifact withdrawn", { status: 410 }))
     }
-    return decision.artifact
+    return artifact
   })
 
 const artifactJson = (artifact: Artifact) => ({
@@ -147,26 +144,14 @@ const getSource = Effect.gen(function*() {
   const artifact = yield* getReadableArtifact(slug)
   const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
-}).pipe(
-  Effect.catchAll((error) =>
-    HttpServerResponse.isServerResponse(error)
-      ? Effect.succeed(error)
-      : Effect.succeed(HttpServerResponse.text("Artifact source unavailable", { status: 500 }))
-  )
-)
+})
 
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
   const artifact = yield* getReadableArtifact(slug)
   const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
   return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
-}).pipe(
-  Effect.catchAll((error) =>
-    HttpServerResponse.isServerResponse(error)
-      ? Effect.succeed(error)
-      : Effect.succeed(HttpServerResponse.text("Artifact unavailable", { status: 500 }))
-  )
-)
+})
 
 const getFeedJson = Effect.gen(function*() {
   const repository = yield* ArtifactRepository

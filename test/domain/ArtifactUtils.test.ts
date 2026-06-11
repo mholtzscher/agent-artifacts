@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Either from "effect/Either"
 
 import { detectSourceType, inferTitle, slugBase } from "../../src/domain/ArtifactUtils.js"
 
@@ -16,7 +17,12 @@ describe("Artifact utilities", () => {
   })
 
   it("detects the MVP source types", () => {
-    expect(detectSourceType("PLAN.md")).toBe("markdown")
-    expect(detectSourceType("report.html")).toBe("html")
+    expect(detectSourceType("PLAN.md")).toEqual(Either.right("markdown"))
+    expect(detectSourceType("report.html")).toEqual(Either.right("html"))
+  })
+
+  it("rejects unsupported source types so publishers get a typed error", () => {
+    const result = detectSourceType("diagram.svg")
+    expect(Either.isLeft(result)).toBe(true)
   })
 })

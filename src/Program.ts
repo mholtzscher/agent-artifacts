@@ -14,39 +14,43 @@ import { ArtifactRepositoryLive } from "./repository/ArtifactRepository.js"
 import { ArtifactSourceStorage, ensureDataDirectories } from "./source-storage/ArtifactSourceStorage.js"
 import { TelemetryLive } from "./telemetry/Telemetry.js"
 
-const main = Effect.gen(function*() {
-  const config = yield* AppConfigService.pipe(Effect.provide(AppConfigLive))
-  const StoragePlatformLive = Layer.merge(NodeFileSystem.layer, PlatformPath.layer)
-  yield* ensureDataDirectories(config).pipe(Effect.provide(StoragePlatformLive))
+const StoragePlatformLive = Layer.merge(NodeFileSystem.layer, PlatformPath.layer)
 
-  const ConfigLive = Layer.succeed(AppConfigService, config)
-  const SqlLive = SqliteClient.layer({ filename: config.databasePath })
-  yield* runArtifactMigrations.pipe(
-    Effect.provide(SqlLive),
-    Effect.provide(StoragePlatformLive),
-    Effect.provide(NodeContext.layer)
+// Ensures data directories exist, then opens the SQLite client.
+const SqlLive = Layer.unwrapEffect(
+  Effect.gen(function*() {
+    const config = yield* AppConfigService
+    yield* ensureDataDirectories(config)
+    return SqliteClient.layer({ filename: config.databasePath })
+  })
+)
+
+// Migrations run as a startup concern, sequenced before anything uses the client.
+const DatabaseLive = Layer.effectDiscard(runArtifactMigrations).pipe(
+  Layer.provideMerge(SqlLive)
+)
+
+const HttpLive = Layer.unwrapEffect(
+  Effect.map(AppConfigService, (config) => NodeHttpServer.layer(() => createServer(), { port: config.port }))
+)
+
+const DataLive = Layer.merge(ArtifactRepositoryLive, ArtifactSourceStorage.Default)
+
+const MainLive = AppRouter.pipe(
+  HttpServer.serve(HttpMiddleware.logger),
+  HttpServer.withLogAddress,
+  Layer.provide(HttpLive),
+  Layer.provide(ArtifactPublishingLive),
+  Layer.provide(DataLive),
+  Layer.provide(DatabaseLive),
+  Layer.provide(AppConfigLive),
+  Layer.provide(StoragePlatformLive),
+  Layer.provide(NodeContext.layer)
+)
+
+NodeRuntime.runMain(
+  Effect.log("agent-artifacts booting").pipe(
+    Effect.andThen(Layer.launch(MainLive)),
+    Effect.provide(TelemetryLive)
   )
-
-  const DataLive = Layer.merge(ArtifactRepositoryLive, ArtifactSourceStorage.Default)
-  const AppLive = Layer.merge(
-    DataLive,
-    ArtifactPublishingLive.pipe(Layer.provide(DataLive))
-  ).pipe(
-    Layer.provide(SqlLive),
-    Layer.provide(StoragePlatformLive)
-  )
-
-  const ServerLive = AppRouter.pipe(
-    HttpServer.serve(HttpMiddleware.logger),
-    HttpServer.withLogAddress,
-    Layer.provide(NodeHttpServer.layer(() => createServer(), { port: config.port })),
-    Layer.provide(NodeContext.layer),
-    Layer.provide(AppLive),
-    Layer.provide(ConfigLive)
-  )
-
-  yield* Effect.log("agent-artifacts booted")
-  yield* Layer.launch(ServerLive)
-})
-
-NodeRuntime.runMain(main.pipe(Effect.provide(TelemetryLive)))
+)

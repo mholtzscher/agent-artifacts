@@ -105,7 +105,7 @@ export class ArtifactRepository extends Effect.Service<ArtifactRepository>()(
             order by created_at desc
             limit ${limit}
           `
-          return yield* Effect.all(rows.map((row) => Schema.decodeUnknown(ArtifactFromRow)(row)))
+          return yield* Schema.decodeUnknown(Schema.Array(ArtifactFromRow))(rows)
         })
       }
     })
