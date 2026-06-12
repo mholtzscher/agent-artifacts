@@ -2,7 +2,7 @@ import { FileSystem } from "@effect/platform/FileSystem"
 import { Path } from "@effect/platform/Path"
 import * as Effect from "effect/Effect"
 
-import { type AppConfig, AppConfigService } from "../config/Config.js"
+import { AppConfigService } from "../config/Config.js"
 import { type ArtifactId, type SourceType } from "../domain/Artifact.js"
 import { extensionForSourceType } from "../domain/ArtifactUtils.js"
 
@@ -14,8 +14,11 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
       const config = yield* AppConfigService
       const fs = yield* FileSystem
       const path = yield* Path
+      const artifactsDir = path.join(config.storageDir, "artifacts")
+      yield* fs.makeDirectory(artifactsDir, { recursive: true })
+
       const sourcePathFor = (id: ArtifactId, sourceType: SourceType) =>
-        path.join(config.storageDir, "artifacts", id, `source${extensionForSourceType(sourceType)}`)
+        path.join(artifactsDir, id, `source${extensionForSourceType(sourceType)}`)
 
       return {
         writeSource: Effect.fn("ArtifactSourceStorage.writeSource")(function*(
@@ -45,11 +48,3 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
     })
   }
 ) {}
-
-export const ensureDataDirectories = (config: AppConfig) =>
-  Effect.gen(function*() {
-    const fs = yield* FileSystem
-    const path = yield* Path
-    yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
-    yield* fs.makeDirectory(config.storageDir, { recursive: true })
-  })

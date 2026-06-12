@@ -1,6 +1,12 @@
+import { FileSystem } from "@effect/platform/FileSystem"
+import { Path } from "@effect/platform/Path"
 import { SqlClient } from "@effect/sql"
+import { SqliteClient } from "@effect/sql-sqlite-node"
 import * as SqliteMigrator from "@effect/sql-sqlite-node/SqliteMigrator"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+
+import { AppConfigService } from "../config/Config.js"
 
 const migrations = SqliteMigrator.fromRecord({
   "1_create_artifacts": Effect.gen(function*() {
@@ -43,7 +49,22 @@ const migrations = SqliteMigrator.fromRecord({
   })
 })
 
-export const runArtifactMigrations = SqliteMigrator.run({
+const SqlLive = Layer.unwrapEffect(
+  Effect.gen(function*() {
+    const config = yield* AppConfigService
+    const fs = yield* FileSystem
+    const path = yield* Path
+    yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
+    return SqliteClient.layer({ filename: config.databasePath })
+  })
+)
+
+const runArtifactMigrations = SqliteMigrator.run({
   loader: migrations,
   table: "artifact_migrations"
 })
+
+// Opens SQLite after ensuring its directory exists, then runs migrations as startup initialization.
+export const ArtifactDatabaseLive = Layer.effectDiscard(runArtifactMigrations).pipe(
+  Layer.provideMerge(SqlLive)
+)
