@@ -27,9 +27,11 @@ const requireWriteKey = Effect.gen(function*() {
   const request = yield* HttpServerRequest.HttpServerRequest
   const provided = request.headers["x-write-key"]
   if (provided === undefined) {
+    yield* Effect.logWarning("publish rejected: missing write key")
     return yield* Effect.fail(HttpServerResponse.text("Missing write key", { status: 401 }))
   }
   if (provided !== Redacted.value(config.writeKey)) {
+    yield* Effect.logWarning("publish rejected: invalid write key")
     return yield* Effect.fail(HttpServerResponse.text("Invalid write key", { status: 403 }))
   }
 })
@@ -57,8 +59,11 @@ const publishArtifact = Effect.gen(function*() {
   const form = yield* HttpServerRequest.schemaBodyForm(publishFormSchema)
   const file = form.file[0]
   if (file === undefined) {
+    yield* Effect.logWarning("publish rejected: missing file")
     return HttpServerResponse.text("Missing file", { status: 400 })
   }
+
+  yield* Effect.logInfo(`publish request accepted filename=${file.name} contentType=${file.contentType ?? "unknown"}`)
 
   const fs = yield* FileSystem.FileSystem
   const sourceBytes = yield* fs.readFile(file.path)
@@ -77,6 +82,10 @@ const publishArtifact = Effect.gen(function*() {
     generator: nullableField(form.generator)
   })
 
+  yield* Effect.logInfo(
+    `publish completed artifactId=${artifact.id} slug=${artifact.slug} sourceType=${artifact.sourceType} sizeBytes=${artifact.sizeBytes}`
+  )
+
   return yield* HttpServerResponse.json(
     PublishResponse.make({
       id: artifact.id,
@@ -92,7 +101,12 @@ const publishArtifact = Effect.gen(function*() {
 }).pipe(
   Effect.catchTag(
     "UnsupportedSourceTypeError",
-    () => HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
+    (error) =>
+      Effect.logWarning(`publish rejected: unsupported source type filename=${error.filename}`).pipe(
+        Effect.andThen(
+          HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
+        )
+      )
   )
 )
 
@@ -105,6 +119,7 @@ const getArtifactOr404 = (slug: Slug) =>
     const repository = yield* ArtifactRepository
     const artifact = yield* repository.findArtifactBySlug(slug)
     if (Option.isNone(artifact)) {
+      yield* Effect.logDebug(`artifact lookup missed slug=${slug}`)
       return yield* Effect.fail(HttpServerResponse.text("Artifact not found", { status: 404 }))
     }
     return artifact.value
@@ -114,6 +129,7 @@ const getReadableArtifact = (slug: Slug) =>
   Effect.gen(function*() {
     const artifact = yield* getArtifactOr404(slug)
     if (artifact.state === "withdrawn") {
+      yield* Effect.logWarning(`withdrawn artifact access slug=${slug} artifactId=${artifact.id}`)
       return yield* Effect.fail(HttpServerResponse.text("Artifact withdrawn", { status: 410 }))
     }
     return artifact
@@ -142,26 +158,38 @@ const artifactJson = (artifact: Artifact) => ({
 const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
   const artifact = yield* getReadableArtifact(slug)
-  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
+  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+    Effect.tapError(() =>
+      Effect.logError(`source read failed slug=${slug} artifactId=${artifact.id} sourceType=${artifact.sourceType}`)
+    )
+  )
   return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
 })
 
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
   const artifact = yield* getReadableArtifact(slug)
-  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType)
+  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+    Effect.tapError(() =>
+      Effect.logError(
+        `artifact page source read failed slug=${slug} artifactId=${artifact.id} sourceType=${artifact.sourceType}`
+      )
+    )
+  )
   return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
 })
 
 const getFeedJson = Effect.gen(function*() {
   const repository = yield* ArtifactRepository
   const artifacts = yield* repository.listRecentArtifacts(50)
+  yield* Effect.logDebug(`feed json returned count=${artifacts.length}`)
   return yield* HttpServerResponse.json({ artifacts: artifacts.map(artifactJson) })
 })
 
 const getHome = Effect.gen(function*() {
   const repository = yield* ArtifactRepository
   const artifacts = yield* repository.listRecentArtifacts(50)
+  yield* Effect.logDebug(`home feed returned count=${artifacts.length}`)
   return HttpServerResponse.html(renderFeedPage(artifacts))
 })
 

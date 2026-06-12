@@ -55,14 +55,19 @@ const SqlLive = Layer.unwrapEffect(
     const fs = yield* FileSystem
     const path = yield* Path
     yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
+    yield* Effect.logInfo(`opening artifact database path=${config.databasePath}`)
     return SqliteClient.layer({ filename: config.databasePath })
   })
 )
 
-const runArtifactMigrations = SqliteMigrator.run({
-  loader: migrations,
-  table: "artifact_migrations"
-})
+const runArtifactMigrations = Effect.logInfo("artifact database migrations starting").pipe(
+  Effect.andThen(SqliteMigrator.run({
+    loader: migrations,
+    table: "artifact_migrations"
+  })),
+  Effect.tap(() => Effect.logInfo("artifact database migrations completed")),
+  Effect.tapError(() => Effect.logError("artifact database migrations failed"))
+)
 
 // Opens SQLite after ensuring its directory exists, then runs migrations as startup initialization.
 export const ArtifactDatabaseLive = Layer.effectDiscard(runArtifactMigrations).pipe(
