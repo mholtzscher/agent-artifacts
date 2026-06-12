@@ -1,6 +1,9 @@
 # Smoke Testing
 
-This project uses a fast publish-and-view flow as its primary smoke test. The goal is to verify that the app can start, accept a published artifact, render the artifact detail page, and keep the rendered view in the intended app-shell layout.
+This project uses a fast publish-and-view flow as its primary smoke test. The
+goal is to verify that the app can start, accept a published artifact, render
+the artifact detail page, and keep the rendered view in the intended app-shell
+layout.
 
 ## Success criteria
 
@@ -14,8 +17,9 @@ A smoke test passes when:
   - Artifact title
   - Source link
 - The rendered artifact fills the remaining viewport width and height.
-- The outer page does not have a vertical scrollbar; scrolling is contained in the rendered content when needed.
-- One artifact page is opened in the normal desktop browser for human inspection.
+- The outer page does not have a vertical scrollbar; scrolling is contained in
+  the rendered content when needed.
+- Agent-run browser assertions produce saved evidence for the artifact page.
 
 ## Prerequisites
 
@@ -23,9 +27,12 @@ A smoke test passes when:
 - Use write key `ap_test` for local smoke testing.
 - Run the app from Zellij.
 - Prefer `agent-browser` for automated browser verification.
-- Rebuild native modules from Zellij when needed. Zellij may use a different `node` than the current shell, so rebuilding in the current shell can still leave the app broken.
+- Rebuild native modules from Zellij when needed. Zellij may use a different
+  `node` than the current shell, so rebuilding in the current shell can still
+  leave the app broken.
 
-If the native SQLite module was built for a different Node version, rebuild it in a short-lived Zellij pane before starting the app:
+If the native SQLite module was built for a different Node version, rebuild it
+in a short-lived Zellij pane before starting the app:
 
 ```sh
 zellij run --name rebuild-sqlite --cwd "$PWD" --close-on-exit -- \
@@ -69,7 +76,9 @@ APP_PANE=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="a
 zellij action dump-screen -p terminal_$APP_PANE --full
 ```
 
-A native SQLite `NODE_MODULE_VERSION` error means `better-sqlite3` was rebuilt with a different `node`; run the Zellij rebuild command from the prerequisites, not a plain shell rebuild.
+A native SQLite `NODE_MODULE_VERSION` error means `better-sqlite3` was rebuilt
+with a different `node`; run the Zellij rebuild command from the prerequisites,
+not a plain shell rebuild.
 
 ## 2. Generate a test HTML artifact
 
@@ -117,7 +126,8 @@ curl -sS -X POST http://localhost:3000/api/artifacts \
   | tee /tmp/artifact-smoke-response.json
 ```
 
-Extract the URL. Normalize relative URLs so the same variable works whether the API returns `/a/...` or an absolute URL:
+Extract the URL. Normalize relative URLs so the same variable works whether the
+API returns `/a/...` or an absolute URL:
 
 ```sh
 ARTIFACT_URL=$(node -e 'const r=require("/tmp/artifact-smoke-response.json"); console.log(r.artifactUrl.startsWith("http") ? r.artifactUrl : `http://localhost:3000${r.artifactUrl}`)')
@@ -178,15 +188,21 @@ Optional screenshot:
 agent-browser screenshot /tmp/artifact-smoke.png
 ```
 
-This is useful to keep as a quick visual artifact when reporting the smoke-test result.
+This is useful to keep as a quick visual artifact when reporting the smoke-test
+result.
 
-## 5. Open for human inspection
+## 5. Record evidence
+
+Keep the agent-browser snapshot, layout assertion output, and optional
+screenshot as evidence for the run:
 
 ```sh
-xdg-open "$ARTIFACT_URL"
+agent-browser snapshot -i -u > /tmp/artifact-smoke-snapshot.txt
+agent-browser screenshot /tmp/artifact-smoke.png
 ```
 
-Visually confirm the page uses a minimal app-shell layout and the artifact is not constrained inside a small centered card.
+The smoke test should be fully agent-driven. Do not require manual desktop
+browser inspection for pass/fail.
 
 ## 6. Shut down
 
@@ -197,5 +213,3 @@ sleep 1
 for id in $APP_PANES; do zellij action close-pane -p terminal_$id; done
 agent-browser close --all
 ```
-
-Leave the normal desktop browser tab open only if someone still needs to inspect it.
