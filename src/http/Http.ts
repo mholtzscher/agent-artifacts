@@ -106,9 +106,8 @@ const publishArtifact = Effect.gen(function*() {
       { status: 201 }
     )
   }).pipe(
-    Effect.catchIf(
-      (error: unknown): error is { readonly _tag: "UnsupportedSourceTypeError" } =>
-        typeof error === "object" && error !== null && "_tag" in error && error._tag === "UnsupportedSourceTypeError",
+    Effect.catchTag(
+      "UnsupportedSourceTypeError",
       () =>
         Effect.logWarning("publish rejected: unsupported source type").pipe(
           Effect.andThen(Effect.succeed(
