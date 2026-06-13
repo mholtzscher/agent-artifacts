@@ -54,8 +54,6 @@ const publishFormSchema = Schema.Struct({
 
 const publishArtifact = Effect.gen(function*() {
   yield* requireWriteKey
-  const config = yield* AppConfigService
-  const publishing = yield* ArtifactPublishing
   const form = yield* HttpServerRequest.schemaBodyForm(publishFormSchema)
   const file = form.file[0]
   if (file === undefined) {
@@ -63,52 +61,65 @@ const publishArtifact = Effect.gen(function*() {
     return HttpServerResponse.text("Missing file", { status: 400 })
   }
 
-  yield* Effect.logInfo(`publish request accepted filename=${file.name} contentType=${file.contentType ?? "unknown"}`)
+  return yield* Effect.gen(function*() {
+    const config = yield* AppConfigService
+    const publishing = yield* ArtifactPublishing
+    yield* Effect.logInfo("publish request accepted")
 
-  const fs = yield* FileSystem.FileSystem
-  const sourceBytes = yield* fs.readFile(file.path)
-  const artifact = yield* publishing.publish({
-    sourceBytes,
-    sourceFilename: file.name,
-    contentType: file.contentType,
-    title: form.title,
-    description: nullableField(form.description),
-    project: nullableField(form.project),
-    repoFullName: nullableField(form.repo),
-    branch: nullableField(form.branch),
-    commitSha: nullableField(form.commit_sha),
-    dirty: booleanField(form.dirty),
-    agent: nullableField(form.agent),
-    generator: nullableField(form.generator)
-  })
+    const fs = yield* FileSystem.FileSystem
+    const sourceBytes = yield* fs.readFile(file.path)
+    const artifact = yield* publishing.publish({
+      sourceBytes,
+      sourceFilename: file.name,
+      contentType: file.contentType,
+      title: form.title,
+      description: nullableField(form.description),
+      project: nullableField(form.project),
+      repoFullName: nullableField(form.repo),
+      branch: nullableField(form.branch),
+      commitSha: nullableField(form.commit_sha),
+      dirty: booleanField(form.dirty),
+      agent: nullableField(form.agent),
+      generator: nullableField(form.generator)
+    })
 
-  yield* Effect.logInfo(
-    `publish completed artifactId=${artifact.id} slug=${artifact.slug} sourceType=${artifact.sourceType} sizeBytes=${artifact.sizeBytes}`
-  )
+    yield* Effect.logInfo("publish completed").pipe(
+      Effect.annotateLogs({
+        artifactId: artifact.id,
+        slug: artifact.slug,
+        sourceType: artifact.sourceType,
+        sizeBytes: artifact.sizeBytes
+      })
+    )
 
-  return yield* HttpServerResponse.json(
-    PublishResponse.make({
-      id: artifact.id,
-      slug: artifact.slug,
-      title: artifact.title,
-      sourceType: artifact.sourceType,
-      artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
-      sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
-      createdAt: artifact.createdAt
-    }),
-    { status: 201 }
-  )
-}).pipe(
-  Effect.catchTag(
-    "UnsupportedSourceTypeError",
-    (error) =>
-      Effect.logWarning(`publish rejected: unsupported source type filename=${error.filename}`).pipe(
-        Effect.andThen(
-          HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
+    return yield* HttpServerResponse.json(
+      PublishResponse.make({
+        id: artifact.id,
+        slug: artifact.slug,
+        title: artifact.title,
+        sourceType: artifact.sourceType,
+        artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
+        sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
+        createdAt: artifact.createdAt
+      }),
+      { status: 201 }
+    )
+  }).pipe(
+    Effect.catchTag(
+      "UnsupportedSourceTypeError",
+      () =>
+        Effect.logWarning("publish rejected: unsupported source type").pipe(
+          Effect.andThen(
+            HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
+          )
         )
-      )
+    ),
+    Effect.annotateLogs({
+      sourceFilename: file.name,
+      contentType: file.contentType ?? "unknown"
+    })
   )
-)
+})
 
 const slugPath = Schema.Struct({ slug: Slug })
 
@@ -119,7 +130,6 @@ const getArtifactOr404 = (slug: Slug) =>
     const repository = yield* ArtifactRepository
     const artifact = yield* repository.findArtifactBySlug(slug)
     if (Option.isNone(artifact)) {
-      yield* Effect.logDebug(`artifact lookup missed slug=${slug}`)
       return yield* Effect.fail(HttpServerResponse.text("Artifact not found", { status: 404 }))
     }
     return artifact.value
@@ -129,7 +139,7 @@ const getReadableArtifact = (slug: Slug) =>
   Effect.gen(function*() {
     const artifact = yield* getArtifactOr404(slug)
     if (artifact.state === "withdrawn") {
-      yield* Effect.logWarning(`withdrawn artifact access slug=${slug} artifactId=${artifact.id}`)
+      yield* Effect.logWarning("withdrawn artifact access").pipe(Effect.annotateLogs("artifactId", artifact.id))
       return yield* Effect.fail(HttpServerResponse.text("Artifact withdrawn", { status: 410 }))
     }
     return artifact
@@ -157,39 +167,37 @@ const artifactJson = (artifact: Artifact) => ({
 
 const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getReadableArtifact(slug)
-  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
-    Effect.tapError(() =>
-      Effect.logError(`source read failed slug=${slug} artifactId=${artifact.id} sourceType=${artifact.sourceType}`)
+  return yield* Effect.gen(function*() {
+    const artifact = yield* getReadableArtifact(slug)
+    const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+      Effect.tapError(() => Effect.logError("source response read failed")),
+      Effect.annotateLogs({ artifactId: artifact.id, sourceType: artifact.sourceType })
     )
-  )
-  return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
+    return HttpServerResponse.uint8Array(source, { contentType: sourceContentType(artifact) })
+  }).pipe(Effect.annotateLogs("slug", slug))
 })
 
 const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
-  const artifact = yield* getReadableArtifact(slug)
-  const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
-    Effect.tapError(() =>
-      Effect.logError(
-        `artifact page source read failed slug=${slug} artifactId=${artifact.id} sourceType=${artifact.sourceType}`
-      )
+  return yield* Effect.gen(function*() {
+    const artifact = yield* getReadableArtifact(slug)
+    const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+      Effect.tapError(() => Effect.logError("artifact page source read failed")),
+      Effect.annotateLogs({ artifactId: artifact.id, sourceType: artifact.sourceType })
     )
-  )
-  return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
+    return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")))
+  }).pipe(Effect.annotateLogs("slug", slug))
 })
 
 const getFeedJson = Effect.gen(function*() {
   const repository = yield* ArtifactRepository
   const artifacts = yield* repository.listRecentArtifacts(50)
-  yield* Effect.logDebug(`feed json returned count=${artifacts.length}`)
   return yield* HttpServerResponse.json({ artifacts: artifacts.map(artifactJson) })
 })
 
 const getHome = Effect.gen(function*() {
   const repository = yield* ArtifactRepository
   const artifacts = yield* repository.listRecentArtifacts(50)
-  yield* Effect.logDebug(`home feed returned count=${artifacts.length}`)
   return HttpServerResponse.html(renderFeedPage(artifacts))
 })
 

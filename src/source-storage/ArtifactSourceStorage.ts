@@ -16,7 +16,7 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
       const path = yield* Path
       const artifactsDir = path.join(config.storageDir, "artifacts")
       yield* fs.makeDirectory(artifactsDir, { recursive: true })
-      yield* Effect.logInfo(`artifact source storage initialized dir=${artifactsDir}`)
+      yield* Effect.logInfo("artifact source storage initialized").pipe(Effect.annotateLogs("dir", artifactsDir))
 
       const sourcePathFor = (id: ArtifactId, sourceType: SourceType) =>
         path.join(artifactsDir, id, `source${extensionForSourceType(sourceType)}`)
@@ -30,9 +30,8 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
           const sourcePath = sourcePathFor(id, sourceType)
           yield* fs.makeDirectory(path.dirname(sourcePath), { recursive: true })
           yield* fs.writeFile(sourcePath, bytes).pipe(
-            Effect.tapError(() =>
-              Effect.logError(`source write failed artifactId=${id} sourceType=${sourceType} path=${sourcePath}`)
-            )
+            Effect.tapError(() => Effect.logError("source write failed")),
+            Effect.annotateLogs({ artifactId: id, sourceType, path: sourcePath })
           )
         }),
 
@@ -42,9 +41,8 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
         ) {
           const sourcePath = sourcePathFor(id, sourceType)
           return yield* fs.readFile(sourcePath).pipe(
-            Effect.tapError(() =>
-              Effect.logError(`source read failed artifactId=${id} sourceType=${sourceType} path=${sourcePath}`)
-            )
+            Effect.tapError(() => Effect.logError("source read failed")),
+            Effect.annotateLogs({ artifactId: id, sourceType, path: sourcePath })
           )
         }),
 
@@ -54,9 +52,8 @@ export class ArtifactSourceStorage extends Effect.Service<ArtifactSourceStorage>
         ) {
           const sourcePath = sourcePathFor(id, sourceType)
           yield* fs.remove(sourcePath, { force: true }).pipe(
-            Effect.tapError(() =>
-              Effect.logError(`source remove failed artifactId=${id} sourceType=${sourceType} path=${sourcePath}`)
-            )
+            Effect.tapError(() => Effect.logError("source remove failed")),
+            Effect.annotateLogs({ artifactId: id, sourceType, path: sourcePath })
           )
         })
       }

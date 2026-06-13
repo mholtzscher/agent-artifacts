@@ -55,7 +55,7 @@ const SqlLive = Layer.unwrapEffect(
     const fs = yield* FileSystem
     const path = yield* Path
     yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
-    yield* Effect.logInfo(`opening artifact database path=${config.databasePath}`)
+    yield* Effect.logInfo("opening artifact database").pipe(Effect.annotateLogs("path", config.databasePath))
     return SqliteClient.layer({ filename: config.databasePath })
   })
 )

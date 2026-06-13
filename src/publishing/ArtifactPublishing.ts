@@ -34,9 +34,8 @@ const makeUniqueSlug = (title: string, slugExists: ArtifactRepository["slugExist
       if (!(yield* slugExists(slug))) {
         return slug
       }
-      yield* Effect.logDebug(`slug collision title=${title} slug=${slug} attempt=${attempt + 1}`)
     }
-    yield* Effect.logWarning(`slug generation failed title=${title}`)
+    yield* Effect.logWarning("slug generation failed").pipe(Effect.annotateLogs("title", title))
     return yield* new SlugGenerationFailedError({ title })
   })
 
@@ -50,15 +49,9 @@ export class ArtifactPublishing extends Effect.Service<ArtifactPublishing>()(
       return {
         publish: Effect.fn("ArtifactPublishing.publish")(function*(input: PublishArtifactInput) {
           const sourceType = yield* detectSourceType(input.sourceFilename, input.contentType)
-          yield* Effect.logDebug(
-            `source type detected filename=${input.sourceFilename} contentType=${
-              input.contentType ?? "unknown"
-            } sourceType=${sourceType}`
-          )
           const id = makeArtifactId()
           const title = inferTitle(input.sourceFilename, input.title)
           const slug = yield* makeUniqueSlug(title, repository.slugExists)
-          yield* Effect.logDebug(`artifact identity assigned artifactId=${id} slug=${slug} title=${title}`)
           const createdAt = DateTime.formatIso(yield* DateTime.now)
           const artifact = Artifact.make({
             id,
@@ -81,18 +74,18 @@ export class ArtifactPublishing extends Effect.Service<ArtifactPublishing>()(
             updatedAt: createdAt
           })
 
-          yield* storage.writeSource(id, sourceType, input.sourceBytes)
-          yield* Effect.logDebug(`artifact source written artifactId=${id} sourceType=${sourceType}`)
-          yield* repository.insertArtifact(artifact).pipe(
-            Effect.tapError(() =>
-              Effect.logError(`artifact insert failed; removing source artifactId=${id} slug=${slug}`).pipe(
-                Effect.andThen(storage.removeSource(id, sourceType))
+          return yield* Effect.gen(function*() {
+            yield* storage.writeSource(id, sourceType, input.sourceBytes)
+            yield* repository.insertArtifact(artifact).pipe(
+              Effect.tapError(() =>
+                Effect.logError("artifact insert failed; removing source").pipe(
+                  Effect.andThen(storage.removeSource(id, sourceType))
+                )
               )
             )
-          )
-          yield* Effect.logDebug(`artifact row inserted artifactId=${id} slug=${slug}`)
 
-          return artifact
+            return artifact
+          }).pipe(Effect.annotateLogs({ artifactId: id, slug, sourceType }))
         })
       }
     })
