@@ -35,6 +35,7 @@ const makeUniqueSlug = (title: string, slugExists: ArtifactRepository["slugExist
         return slug
       }
     }
+    yield* Effect.logWarning("slug generation failed").pipe(Effect.annotateLogs("title", title))
     return yield* new SlugGenerationFailedError({ title })
   })
 
@@ -73,12 +74,18 @@ export class ArtifactPublishing extends Effect.Service<ArtifactPublishing>()(
             updatedAt: createdAt
           })
 
-          yield* storage.writeSource(id, sourceType, input.sourceBytes)
-          yield* repository.insertArtifact(artifact).pipe(
-            Effect.tapError(() => storage.removeSource(id, sourceType))
-          )
+          return yield* Effect.gen(function*() {
+            yield* storage.writeSource(id, sourceType, input.sourceBytes)
+            yield* repository.insertArtifact(artifact).pipe(
+              Effect.tapError(() =>
+                Effect.logError("artifact insert failed; removing source").pipe(
+                  Effect.andThen(storage.removeSource(id, sourceType))
+                )
+              )
+            )
 
-          return artifact
+            return artifact
+          }).pipe(Effect.annotateLogs({ artifactId: id, slug, sourceType }))
         })
       }
     })
