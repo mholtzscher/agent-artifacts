@@ -6,13 +6,13 @@ export type ArtifactId = Schema.Schema.Type<typeof ArtifactId>
 export const Slug = Schema.String.pipe(Schema.brand("Slug"))
 export type Slug = Schema.Schema.Type<typeof Slug>
 
-export const ArtifactState = Schema.Literal("active", "withdrawn")
+export const ArtifactState = Schema.Literals(["active", "withdrawn"])
 export type ArtifactState = Schema.Schema.Type<typeof ArtifactState>
 
-export const SourceType = Schema.Literal("markdown", "html")
+export const SourceType = Schema.Literals(["markdown", "html"])
 export type SourceType = Schema.Schema.Type<typeof SourceType>
 
-export class UnsupportedSourceTypeError extends Schema.TaggedError<UnsupportedSourceTypeError>()(
+export class UnsupportedSourceTypeError extends Schema.TaggedErrorClass<UnsupportedSourceTypeError>()(
   "UnsupportedSourceTypeError",
   { filename: Schema.String }
 ) {}

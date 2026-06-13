@@ -1,10 +1,10 @@
-import { FileSystem } from "@effect/platform/FileSystem"
-import { Path } from "@effect/platform/Path"
-import { SqlClient } from "@effect/sql"
 import { SqliteClient } from "@effect/sql-sqlite-node"
 import * as SqliteMigrator from "@effect/sql-sqlite-node/SqliteMigrator"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Path from "effect/Path"
+import { SqlClient } from "effect/unstable/sql"
 
 import { AppConfigService } from "../config/Config.js"
 
@@ -49,11 +49,11 @@ const migrations = SqliteMigrator.fromRecord({
   })
 })
 
-const SqlLive = Layer.unwrapEffect(
+const SqlLive = Layer.unwrap(
   Effect.gen(function*() {
     const config = yield* AppConfigService
-    const fs = yield* FileSystem
-    const path = yield* Path
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
     yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
     yield* Effect.logInfo("opening artifact database").pipe(Effect.annotateLogs("path", config.databasePath))
     return SqliteClient.layer({ filename: config.databasePath })

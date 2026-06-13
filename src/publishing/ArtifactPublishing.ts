@@ -1,5 +1,7 @@
+import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { Artifact } from "../domain/Artifact.js"
@@ -22,12 +24,15 @@ export interface PublishArtifactInput {
   readonly generator: string | null
 }
 
-export class SlugGenerationFailedError extends Schema.TaggedError<SlugGenerationFailedError>()(
+export class SlugGenerationFailedError extends Schema.TaggedErrorClass<SlugGenerationFailedError>()(
   "SlugGenerationFailedError",
   { title: Schema.String }
 ) {}
 
-const makeUniqueSlug = (title: string, slugExists: ArtifactRepository["slugExists"]) =>
+const makeUniqueSlug = (
+  title: string,
+  slugExists: (slug: ReturnType<typeof makeSlugCandidate>) => Effect.Effect<boolean, unknown>
+) =>
   Effect.gen(function*() {
     for (let attempt = 0; attempt < 8; attempt++) {
       const slug = makeSlugCandidate(title)
@@ -36,60 +41,63 @@ const makeUniqueSlug = (title: string, slugExists: ArtifactRepository["slugExist
       }
     }
     yield* Effect.logWarning("slug generation failed").pipe(Effect.annotateLogs("title", title))
-    return yield* new SlugGenerationFailedError({ title })
+    return yield* Effect.fail(new SlugGenerationFailedError({ title }))
   })
 
-export class ArtifactPublishing extends Effect.Service<ArtifactPublishing>()(
-  "AgentArtifacts/ArtifactPublishing",
-  {
-    effect: Effect.gen(function*() {
-      const repository = yield* ArtifactRepository
-      const storage = yield* ArtifactSourceStorage
+export interface ArtifactPublishingShape {
+  readonly publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, unknown>
+}
 
-      return {
-        publish: Effect.fn("ArtifactPublishing.publish")(function*(input: PublishArtifactInput) {
-          const sourceType = yield* detectSourceType(input.sourceFilename, input.contentType)
-          const id = makeArtifactId()
-          const title = inferTitle(input.sourceFilename, input.title)
-          const slug = yield* makeUniqueSlug(title, repository.slugExists)
-          const createdAt = DateTime.formatIso(yield* DateTime.now)
-          const artifact = Artifact.make({
-            id,
-            slug,
-            title,
-            description: input.description,
-            sourceType,
-            sourceFilename: input.sourceFilename,
-            sha256: sha256Hex(input.sourceBytes),
-            sizeBytes: input.sourceBytes.byteLength,
-            project: input.project,
-            repoFullName: input.repoFullName,
-            branch: input.branch,
-            commitSha: input.commitSha,
-            dirty: input.dirty,
-            agent: input.agent,
-            generator: input.generator,
-            state: "active",
-            createdAt,
-            updatedAt: createdAt
-          })
-
-          return yield* Effect.gen(function*() {
-            yield* storage.writeSource(id, sourceType, input.sourceBytes)
-            yield* repository.insertArtifact(artifact).pipe(
-              Effect.tapError(() =>
-                Effect.logError("artifact insert failed; removing source").pipe(
-                  Effect.andThen(storage.removeSource(id, sourceType))
-                )
-              )
-            )
-
-            return artifact
-          }).pipe(Effect.annotateLogs({ artifactId: id, slug, sourceType }))
-        })
-      }
-    })
-  }
+export class ArtifactPublishing extends Context.Service<ArtifactPublishing, ArtifactPublishingShape>()(
+  "AgentArtifacts/ArtifactPublishing"
 ) {}
 
-export const ArtifactPublishingLive = ArtifactPublishing.Default
+const makeArtifactPublishing = Effect.gen(function*() {
+  const repository = yield* ArtifactRepository
+  const storage = yield* ArtifactSourceStorage
+
+  return ArtifactPublishing.of({
+    publish: Effect.fn("ArtifactPublishing.publish")(function*(input: PublishArtifactInput) {
+      const sourceType = yield* Effect.fromResult(detectSourceType(input.sourceFilename, input.contentType))
+      const id = makeArtifactId()
+      const title = inferTitle(input.sourceFilename, input.title)
+      const slug = yield* makeUniqueSlug(title, repository.slugExists)
+      const createdAt = DateTime.formatIso(yield* DateTime.now)
+      const artifact = Artifact.make({
+        id,
+        slug,
+        title,
+        description: input.description,
+        sourceType,
+        sourceFilename: input.sourceFilename,
+        sha256: sha256Hex(input.sourceBytes),
+        sizeBytes: input.sourceBytes.byteLength,
+        project: input.project,
+        repoFullName: input.repoFullName,
+        branch: input.branch,
+        commitSha: input.commitSha,
+        dirty: input.dirty,
+        agent: input.agent,
+        generator: input.generator,
+        state: "active",
+        createdAt,
+        updatedAt: createdAt
+      })
+
+      return yield* Effect.gen(function*() {
+        yield* storage.writeSource(id, sourceType, input.sourceBytes)
+        yield* repository.insertArtifact(artifact).pipe(
+          Effect.tapError(() =>
+            Effect.logError("artifact insert failed; removing source").pipe(
+              Effect.andThen(storage.removeSource(id, sourceType))
+            )
+          )
+        )
+
+        return artifact
+      }).pipe(Effect.annotateLogs({ artifactId: id, slug, sourceType }))
+    })
+  })
+})
+
+export const ArtifactPublishingLive = Layer.effect(ArtifactPublishing, makeArtifactPublishing)

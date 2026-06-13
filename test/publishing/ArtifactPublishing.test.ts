@@ -1,7 +1,7 @@
-import { SqlError } from "@effect/sql/SqlError"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import { SqlError, UnknownError } from "effect/unstable/sql/SqlError"
 import { describe, expect, it } from "vitest"
 
 import type { Artifact } from "../../src/domain/Artifact.js"
@@ -35,7 +35,7 @@ describe("ArtifactPublishing", () => {
 
     const RepositoryTest = Layer.succeed(
       ArtifactRepository,
-      new ArtifactRepository({
+      ArtifactRepository.of({
         insertArtifact: (artifact) => Effect.sync(() => inserted.push(artifact)).pipe(Effect.asVoid),
         findArtifactBySlug: () => Effect.succeed(Option.none()),
         slugExists: () => Effect.succeed(false),
@@ -44,7 +44,7 @@ describe("ArtifactPublishing", () => {
     )
     const StorageTest = Layer.succeed(
       ArtifactSourceStorage,
-      new ArtifactSourceStorage({
+      ArtifactSourceStorage.of({
         writeSource: (id, _sourceType, bytes) => Effect.sync(() => written.push({ id, bytes })).pipe(Effect.asVoid),
         readSource: () => Effect.succeed(new Uint8Array()),
         removeSource: () => Effect.void
@@ -77,9 +77,11 @@ describe("ArtifactPublishing", () => {
 
     const RepositoryTest = Layer.succeed(
       ArtifactRepository,
-      new ArtifactRepository({
+      ArtifactRepository.of({
         insertArtifact: () =>
-          Effect.fail(new SqlError({ cause: new Error("insert failed"), message: "insert failed" })),
+          Effect.fail(
+            new SqlError({ reason: new UnknownError({ cause: new Error("insert failed"), message: "insert failed" }) })
+          ),
         findArtifactBySlug: () => Effect.succeed(Option.none()),
         slugExists: () => Effect.succeed(false),
         listRecentArtifacts: () => Effect.succeed([])
@@ -87,7 +89,7 @@ describe("ArtifactPublishing", () => {
     )
     const StorageTest = Layer.succeed(
       ArtifactSourceStorage,
-      new ArtifactSourceStorage({
+      ArtifactSourceStorage.of({
         writeSource: (id) =>
           Effect.sync(() => {
             writtenId = id

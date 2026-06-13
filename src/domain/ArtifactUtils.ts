@@ -1,4 +1,4 @@
-import * as Either from "effect/Either"
+import * as Result from "effect/Result"
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import * as path from "node:path"
 
@@ -20,15 +20,15 @@ export const inferTitle = (filename: string, provided?: string | undefined): str
 export const detectSourceType = (
   filename: string,
   contentType?: string | undefined
-): Either.Either<SourceType, UnsupportedSourceTypeError> => {
+): Result.Result<SourceType, UnsupportedSourceTypeError> => {
   const extension = path.extname(filename).toLowerCase()
   if (extension === ".md" || extension === ".markdown" || contentType === "text/markdown") {
-    return Either.right("markdown")
+    return Result.succeed("markdown")
   }
   if (extension === ".html" || extension === ".htm" || contentType === "text/html") {
-    return Either.right("html")
+    return Result.succeed("html")
   }
-  return Either.left(new UnsupportedSourceTypeError({ filename }))
+  return Result.fail(new UnsupportedSourceTypeError({ filename }))
 }
 
 export const slugBase = (title: string): string => {

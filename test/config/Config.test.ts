@@ -6,16 +6,14 @@ import * as Exit from "effect/Exit"
 import { AppConfigLive, AppConfigService } from "../../src/config/Config.js"
 
 const configProvider = (env: NodeJS.ProcessEnv): ConfigProvider.ConfigProvider =>
-  ConfigProvider.fromMap(
-    new Map(
-      Object.entries(env).flatMap(([key, value]) => value === undefined ? [] : [[key, value]])
-    )
-  ).pipe(ConfigProvider.constantCase)
+  ConfigProvider.fromUnknown(Object.fromEntries(
+    Object.entries(env).flatMap(([key, value]) => value === undefined ? [] : [[key, value]])
+  )).pipe(ConfigProvider.constantCase)
 
 const readConfig = (env: NodeJS.ProcessEnv) =>
   AppConfigService.pipe(
     Effect.provide(AppConfigLive),
-    Effect.withConfigProvider(configProvider(env))
+    Effect.provideService(ConfigProvider.ConfigProvider, configProvider(env))
   )
 
 describe("configuration", () => {

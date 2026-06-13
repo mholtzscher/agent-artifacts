@@ -1,8 +1,9 @@
-import { FileSystem, HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "@effect/platform"
 import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "effect/unstable/http"
 
 import { AppConfigService } from "../config/Config.js"
 import { type Artifact, PublishResponse, Slug } from "../domain/Artifact.js"
@@ -105,13 +106,14 @@ const publishArtifact = Effect.gen(function*() {
       { status: 201 }
     )
   }).pipe(
-    Effect.catchTag(
-      "UnsupportedSourceTypeError",
+    Effect.catchIf(
+      (error: unknown): error is { readonly _tag: "UnsupportedSourceTypeError" } =>
+        typeof error === "object" && error !== null && "_tag" in error && error._tag === "UnsupportedSourceTypeError",
       () =>
         Effect.logWarning("publish rejected: unsupported source type").pipe(
-          Effect.andThen(
+          Effect.andThen(Effect.succeed(
             HttpServerResponse.text("Unsupported source type. MVP supports Markdown and HTML source.", { status: 415 })
-          )
+          ))
         )
     ),
     Effect.annotateLogs({
@@ -169,7 +171,8 @@ const getSource = Effect.gen(function*() {
   const slug = yield* getSlugParam
   return yield* Effect.gen(function*() {
     const artifact = yield* getReadableArtifact(slug)
-    const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+    const storage = yield* ArtifactSourceStorage
+    const source = yield* storage.readSource(artifact.id, artifact.sourceType).pipe(
       Effect.tapError(() => Effect.logError("source response read failed")),
       Effect.annotateLogs({ artifactId: artifact.id, sourceType: artifact.sourceType })
     )
@@ -181,7 +184,8 @@ const getArtifactPage = Effect.gen(function*() {
   const slug = yield* getSlugParam
   return yield* Effect.gen(function*() {
     const artifact = yield* getReadableArtifact(slug)
-    const source = yield* ArtifactSourceStorage.readSource(artifact.id, artifact.sourceType).pipe(
+    const storage = yield* ArtifactSourceStorage
+    const source = yield* storage.readSource(artifact.id, artifact.sourceType).pipe(
       Effect.tapError(() => Effect.logError("artifact page source read failed")),
       Effect.annotateLogs({ artifactId: artifact.id, sourceType: artifact.sourceType })
     )
@@ -201,10 +205,10 @@ const getHome = Effect.gen(function*() {
   return HttpServerResponse.html(renderFeedPage(artifacts))
 })
 
-export const AppRouter = HttpRouter.empty.pipe(
-  HttpRouter.get("/", getHome),
-  HttpRouter.get("/api/artifacts", getFeedJson),
-  HttpRouter.post("/api/artifacts", publishArtifact),
-  HttpRouter.get("/a/:slug", getArtifactPage),
-  HttpRouter.get("/source/:slug", getSource)
-)
+export const AppRouter = HttpRouter.addAll([
+  HttpRouter.route("GET", "/", getHome),
+  HttpRouter.route("GET", "/api/artifacts", getFeedJson),
+  HttpRouter.route("POST", "/api/artifacts", publishArtifact),
+  HttpRouter.route("GET", "/a/:slug", getArtifactPage),
+  HttpRouter.route("GET", "/source/:slug", getSource)
+])

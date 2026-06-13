@@ -1,13 +1,15 @@
-import { SqlClient } from "@effect/sql"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import { SqlClient } from "effect/unstable/sql"
 
-import { Artifact, ArtifactState, type Slug, SourceType } from "../domain/Artifact.js"
+import { Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../domain/Artifact.js"
 
 const ArtifactRow = Schema.Struct({
-  id: Schema.String,
-  slug: Schema.String,
+  id: ArtifactId,
+  slug: Slug,
   title: Schema.String,
   description: Schema.NullOr(Schema.String),
   source_type: SourceType,
@@ -18,7 +20,7 @@ const ArtifactRow = Schema.Struct({
   repo_full_name: Schema.NullOr(Schema.String),
   branch: Schema.NullOr(Schema.String),
   commit_sha: Schema.NullOr(Schema.String),
-  dirty: Schema.Literal(0, 1),
+  dirty: Schema.Literals([0, 1]),
   agent: Schema.NullOr(Schema.String),
   generator: Schema.NullOr(Schema.String),
   state: ArtifactState,
@@ -28,8 +30,8 @@ const ArtifactRow = Schema.Struct({
 
 type ArtifactRow = Schema.Schema.Type<typeof ArtifactRow>
 
-const ArtifactFromRow = Schema.transform(ArtifactRow, Artifact, {
-  decode: (row) => ({
+const artifactFromRow = (row: ArtifactRow): Artifact =>
+  Artifact.make({
     id: row.id,
     slug: row.slug,
     title: row.title,
@@ -48,68 +50,72 @@ const ArtifactFromRow = Schema.transform(ArtifactRow, Artifact, {
     state: row.state,
     createdAt: row.created_at,
     updatedAt: row.updated_at
-  }),
-  encode: (artifact) => ({
-    id: artifact.id,
-    slug: artifact.slug,
-    title: artifact.title,
-    description: artifact.description,
-    source_type: artifact.sourceType,
-    source_filename: artifact.sourceFilename,
-    sha256: artifact.sha256,
-    size_bytes: artifact.sizeBytes,
-    project: artifact.project,
-    repo_full_name: artifact.repoFullName,
-    branch: artifact.branch,
-    commit_sha: artifact.commitSha,
-    dirty: artifact.dirty ? 1 : 0,
-    agent: artifact.agent,
-    generator: artifact.generator,
-    state: artifact.state,
-    created_at: artifact.createdAt,
-    updated_at: artifact.updatedAt
-  }),
-  strict: false
+  })
+
+const artifactToRow = (artifact: Artifact): ArtifactRow => ({
+  id: artifact.id,
+  slug: artifact.slug,
+  title: artifact.title,
+  description: artifact.description,
+  source_type: artifact.sourceType,
+  source_filename: artifact.sourceFilename,
+  sha256: artifact.sha256,
+  size_bytes: artifact.sizeBytes,
+  project: artifact.project,
+  repo_full_name: artifact.repoFullName,
+  branch: artifact.branch,
+  commit_sha: artifact.commitSha,
+  dirty: artifact.dirty ? 1 : 0,
+  agent: artifact.agent,
+  generator: artifact.generator,
+  state: artifact.state,
+  created_at: artifact.createdAt,
+  updated_at: artifact.updatedAt
 })
 
-export class ArtifactRepository extends Effect.Service<ArtifactRepository>()(
-  "AgentArtifacts/ArtifactRepository",
-  {
-    accessors: true,
-    effect: Effect.gen(function*() {
-      const sql = yield* SqlClient.SqlClient
+export interface ArtifactRepositoryShape {
+  readonly insertArtifact: (artifact: Artifact) => Effect.Effect<void, unknown>
+  readonly findArtifactBySlug: (slug: Slug) => Effect.Effect<Option.Option<Artifact>, unknown>
+  readonly slugExists: (slug: Slug) => Effect.Effect<boolean, unknown>
+  readonly listRecentArtifacts: (limit: number) => Effect.Effect<ReadonlyArray<Artifact>, unknown>
+}
 
-      return {
-        insertArtifact: Effect.fn("ArtifactRepository.insertArtifact")(function*(artifact: Artifact) {
-          const row = yield* Schema.encode(ArtifactFromRow)(artifact)
-          yield* sql`insert into artifacts ${sql.insert(row)}`
-        }),
+export class ArtifactRepository extends Context.Service<ArtifactRepository, ArtifactRepositoryShape>()(
+  "AgentArtifacts/ArtifactRepository"
+) {}
 
-        findArtifactBySlug: Effect.fn("ArtifactRepository.findArtifactBySlug")(function*(slug: Slug) {
-          const rows = yield* sql<ArtifactRow>`select * from artifacts where slug = ${slug} limit 1`
-          return rows[0] === undefined
-            ? Option.none()
-            : Option.some(yield* Schema.decodeUnknown(ArtifactFromRow)(rows[0]))
-        }),
+const makeArtifactRepository = Effect.gen(function*() {
+  const sql = yield* SqlClient.SqlClient
 
-        slugExists: Effect.fn("ArtifactRepository.slugExists")(function*(slug: Slug) {
-          const rows = yield* sql<
-            { readonly count: number }
-          >`select count(*) as count from artifacts where slug = ${slug}`
-          return (rows[0]?.count ?? 0) > 0
-        }),
+  return ArtifactRepository.of({
+    insertArtifact: Effect.fn("ArtifactRepository.insertArtifact")(function*(artifact: Artifact) {
+      const row = artifactToRow(artifact)
+      yield* sql`insert into artifacts ${sql.insert(row)}`
+    }),
 
-        listRecentArtifacts: Effect.fn("ArtifactRepository.listRecentArtifacts")(function*(limit: number) {
-          const rows = yield* sql<ArtifactRow>`
+    findArtifactBySlug: Effect.fn("ArtifactRepository.findArtifactBySlug")(function*(slug: Slug) {
+      const rows = yield* sql<ArtifactRow>`select * from artifacts where slug = ${slug} limit 1`
+      return rows[0] === undefined
+        ? Option.none()
+        : Option.some(artifactFromRow(yield* Schema.decodeUnknownEffect(ArtifactRow)(rows[0])))
+    }),
+
+    slugExists: Effect.fn("ArtifactRepository.slugExists")(function*(slug: Slug) {
+      const rows = yield* sql<
+        { readonly count: number }
+      >`select count(*) as count from artifacts where slug = ${slug}`
+      return (rows[0]?.count ?? 0) > 0
+    }),
+
+    listRecentArtifacts: Effect.fn("ArtifactRepository.listRecentArtifacts")(function*(limit: number) {
+      const rows = yield* sql<ArtifactRow>`
             select * from artifacts
             order by created_at desc
             limit ${limit}
           `
-          return yield* Schema.decodeUnknown(Schema.Array(ArtifactFromRow))(rows)
-        })
-      }
+      return (yield* Schema.decodeUnknownEffect(Schema.Array(ArtifactRow))(rows)).map(artifactFromRow)
     })
-  }
-) {}
+  })
+})
 
-export const ArtifactRepositoryLive = ArtifactRepository.Default
+export const ArtifactRepositoryLive = Layer.effect(ArtifactRepository, makeArtifactRepository)
