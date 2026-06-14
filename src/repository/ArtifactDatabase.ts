@@ -1,16 +1,16 @@
-import { SqliteClient } from "@effect/sql-sqlite-node"
-import * as SqliteMigrator from "@effect/sql-sqlite-node/SqliteMigrator"
-import * as Effect from "effect/Effect"
-import * as FileSystem from "effect/FileSystem"
-import * as Layer from "effect/Layer"
-import * as Path from "effect/Path"
-import { SqlClient } from "effect/unstable/sql"
+import { SqliteClient } from "@effect/sql-sqlite-node";
+import * as SqliteMigrator from "@effect/sql-sqlite-node/SqliteMigrator";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import { SqlClient } from "effect/unstable/sql";
 
-import { AppConfigService } from "../config/Config.js"
+import { AppConfigService } from "../config/Config.js";
 
 const migrations = SqliteMigrator.fromRecord({
-  "1_create_artifacts": Effect.gen(function*() {
-    const sql = yield* SqlClient.SqlClient
+  "1_create_artifacts": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
 
     yield* sql`
       create table if not exists artifacts (
@@ -33,43 +33,43 @@ const migrations = SqliteMigrator.fromRecord({
         created_at text not null,
         updated_at text not null
       )
-    `
+    `;
 
-    yield* sql`create index if not exists artifacts_created_at_idx on artifacts(created_at desc)`
-    yield* sql`create index if not exists artifacts_state_idx on artifacts(state)`
+    yield* sql`create index if not exists artifacts_created_at_idx on artifacts(created_at desc)`;
+    yield* sql`create index if not exists artifacts_state_idx on artifacts(state)`;
   }),
 
-  "2_drop_artifacts_source_path": Effect.gen(function*() {
-    const sql = yield* SqlClient.SqlClient
-    const columns = yield* sql<{ readonly name: string }>`pragma table_info(artifacts)`
+  "2_drop_artifacts_source_path": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const columns = yield* sql<{ readonly name: string }>`pragma table_info(artifacts)`;
 
     if (columns.some((column) => column.name === "source_path")) {
-      yield* sql`alter table artifacts drop column source_path`
+      yield* sql`alter table artifacts drop column source_path`;
     }
-  })
-})
+  }),
+});
 
 const SqlLive = Layer.unwrap(
-  Effect.gen(function*() {
-    const config = yield* AppConfigService
-    const fs = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true })
-    yield* Effect.logInfo("opening artifact database").pipe(Effect.annotateLogs("path", config.databasePath))
-    return SqliteClient.layer({ filename: config.databasePath })
-  })
-)
+  Effect.gen(function* () {
+    const config = yield* AppConfigService;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* fs.makeDirectory(path.dirname(config.databasePath), { recursive: true });
+    yield* Effect.logInfo("opening artifact database").pipe(Effect.annotateLogs("path", config.databasePath));
+    return SqliteClient.layer({ filename: config.databasePath });
+  }),
+);
 
 const runArtifactMigrations = Effect.logInfo("artifact database migrations starting").pipe(
-  Effect.andThen(SqliteMigrator.run({
-    loader: migrations,
-    table: "artifact_migrations"
-  })),
+  Effect.andThen(
+    SqliteMigrator.run({
+      loader: migrations,
+      table: "artifact_migrations",
+    }),
+  ),
   Effect.tap(() => Effect.logInfo("artifact database migrations completed")),
-  Effect.tapError(() => Effect.logError("artifact database migrations failed"))
-)
+  Effect.tapError(() => Effect.logError("artifact database migrations failed")),
+);
 
 // Opens SQLite after ensuring its directory exists, then runs migrations as startup initialization.
-export const ArtifactDatabaseLive = Layer.effectDiscard(runArtifactMigrations).pipe(
-  Layer.provideMerge(SqlLive)
-)
+export const ArtifactDatabaseLive = Layer.effectDiscard(runArtifactMigrations).pipe(Layer.provideMerge(SqlLive));

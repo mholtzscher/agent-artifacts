@@ -208,17 +208,17 @@ curl -X POST https://artifacts.example.com/api/artifacts \
 
 ```ts
 function requireApiKey(request: Request, expectedApiKey: string): Response | null {
-  const provided = request.headers.get("x-api-key")
+  const provided = request.headers.get("x-api-key");
 
   if (!provided) {
-    return new Response("Missing write key", { status: 401 })
+    return new Response("Missing write key", { status: 401 });
   }
 
   if (provided !== expectedApiKey) {
-    return new Response("Invalid write key", { status: 403 })
+    return new Response("Invalid write key", { status: 403 });
   }
 
-  return null
+  return null;
 }
 ```
 
@@ -421,10 +421,7 @@ Preferred behavior:
 In `/a/:slug`, render HTML artifacts inside an iframe:
 
 ```html
-<iframe
-  src="/embed/my-html-artifact"
-  sandbox="allow-same-origin"
-></iframe>
+<iframe src="/embed/my-html-artifact" sandbox="allow-same-origin"></iframe>
 ```
 
 Consider a strict Content Security Policy.
@@ -788,10 +785,10 @@ Nice-to-have for sharing links.
 Each artifact page should eventually include:
 
 ```html
-<meta property="og:title" content="Artifact title">
-<meta property="og:description" content="Artifact summary">
-<meta property="og:type" content="article">
-<meta property="og:url" content="https://artifacts.example.com/a/slug">
+<meta property="og:title" content="Artifact title" />
+<meta property="og:description" content="Artifact summary" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://artifacts.example.com/a/slug" />
 ```
 
 MVP can skip image generation.

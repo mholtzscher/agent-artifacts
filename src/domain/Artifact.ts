@@ -1,20 +1,20 @@
-import * as Schema from "effect/Schema"
+import * as Schema from "effect/Schema";
 
-export const ArtifactId = Schema.String.pipe(Schema.brand("ArtifactId"))
-export type ArtifactId = Schema.Schema.Type<typeof ArtifactId>
+export const ArtifactId = Schema.String.pipe(Schema.brand("ArtifactId"));
+export type ArtifactId = Schema.Schema.Type<typeof ArtifactId>;
 
-export const Slug = Schema.String.pipe(Schema.brand("Slug"))
-export type Slug = Schema.Schema.Type<typeof Slug>
+export const Slug = Schema.String.pipe(Schema.brand("Slug"));
+export type Slug = Schema.Schema.Type<typeof Slug>;
 
-export const ArtifactState = Schema.Literals(["active", "withdrawn"])
-export type ArtifactState = Schema.Schema.Type<typeof ArtifactState>
+export const ArtifactState = Schema.Literals(["active", "withdrawn"]);
+export type ArtifactState = Schema.Schema.Type<typeof ArtifactState>;
 
-export const SourceType = Schema.Literals(["markdown", "html"])
-export type SourceType = Schema.Schema.Type<typeof SourceType>
+export const SourceType = Schema.Literals(["markdown", "html"]);
+export type SourceType = Schema.Schema.Type<typeof SourceType>;
 
 export class UnsupportedSourceTypeError extends Schema.TaggedErrorClass<UnsupportedSourceTypeError>()(
   "UnsupportedSourceTypeError",
-  { filename: Schema.String }
+  { filename: Schema.String },
 ) {}
 
 export class Artifact extends Schema.Class<Artifact>("Artifact")({
@@ -35,7 +35,7 @@ export class Artifact extends Schema.Class<Artifact>("Artifact")({
   generator: Schema.NullOr(Schema.String),
   state: ArtifactState,
   createdAt: Schema.String,
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
 }) {}
 
 export class PublishResponse extends Schema.Class<PublishResponse>("PublishResponse")({
@@ -45,5 +45,5 @@ export class PublishResponse extends Schema.Class<PublishResponse>("PublishRespo
   sourceType: SourceType,
   artifactUrl: Schema.String,
   sourceUrl: Schema.String,
-  createdAt: Schema.String
+  createdAt: Schema.String,
 }) {}

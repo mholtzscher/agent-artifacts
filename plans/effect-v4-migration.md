@@ -4,15 +4,15 @@
 
 The project currently runs on **Effect v3**:
 
-| Package | Current |
-| --- | --- |
-| `effect` | `^3.21.3` |
-| `@effect/platform` | `^0.96.1` |
-| `@effect/platform-node` | `^0.107.0` |
-| `@effect/sql` | `^0.51.1` |
-| `@effect/sql-sqlite-node` | `^0.52.0` |
-| `@effect/opentelemetry` | `^0.63.0` |
-| `@effect/vitest` | `^0.29.0` |
+| Package                   | Current    |
+| ------------------------- | ---------- |
+| `effect`                  | `^3.21.3`  |
+| `@effect/platform`        | `^0.96.1`  |
+| `@effect/platform-node`   | `^0.107.0` |
+| `@effect/sql`             | `^0.51.1`  |
+| `@effect/sql-sqlite-node` | `^0.52.0`  |
+| `@effect/opentelemetry`   | `^0.63.0`  |
+| `@effect/vitest`          | `^0.29.0`  |
 
 Effect v4 is currently in **beta** (`4.0.0-beta.83`). We will target the latest v4 beta and use the new `effect/unstable/*` paths for HTTP, SQL, and observability modules. It unifies ecosystem packages under one version, consolidates many `@effect/platform` and `@effect/sql` modules into `effect`, and introduces breaking API renames. The core model stays the same.
 
@@ -32,23 +32,23 @@ Order of work:
 
 ## Files to modify
 
-| File | Changes |
-| --- | --- |
-| `package.json` | Bump Effect deps to v4 beta. |
-| `src/Program.ts` | Platform imports. |
-| `src/config/Config.ts` | `Effect.Service` → `Context.Service`. |
-| `src/http/Http.ts` | Platform imports, `catchAll` if used. |
-| `src/domain/Artifact.ts` | `Schema.TaggedError` → `Schema.TaggedErrorClass`. |
-| `src/domain/ArtifactUtils.ts` | `Either` → `Result`. |
-| `src/repository/ArtifactRepository.ts` | SQL imports, service, schema transform. |
-| `src/repository/ArtifactDatabase.ts` | SQL/SQLite/platform imports, layer. |
-| `src/source-storage/ArtifactSourceStorage.ts` | Platform imports, service. |
-| `src/publishing/ArtifactPublishing.ts` | Service, tagged error, `Effect.fn`. |
-| `src/telemetry/Telemetry.ts` | OpenTelemetry imports. |
-| `test/config/Config.test.ts` | `@effect/vitest` API. |
-| `test/domain/ArtifactUtils.test.ts` | `Result` assertions. |
-| `test/publishing/ArtifactPublishing.test.ts` | Service layer construction, `SqlError` import. |
-| `test/http/Http.integration.test.ts` | Likely none, but verify via integration run. |
+| File                                          | Changes                                           |
+| --------------------------------------------- | ------------------------------------------------- |
+| `package.json`                                | Bump Effect deps to v4 beta.                      |
+| `src/Program.ts`                              | Platform imports.                                 |
+| `src/config/Config.ts`                        | `Effect.Service` → `Context.Service`.             |
+| `src/http/Http.ts`                            | Platform imports, `catchAll` if used.             |
+| `src/domain/Artifact.ts`                      | `Schema.TaggedError` → `Schema.TaggedErrorClass`. |
+| `src/domain/ArtifactUtils.ts`                 | `Either` → `Result`.                              |
+| `src/repository/ArtifactRepository.ts`        | SQL imports, service, schema transform.           |
+| `src/repository/ArtifactDatabase.ts`          | SQL/SQLite/platform imports, layer.               |
+| `src/source-storage/ArtifactSourceStorage.ts` | Platform imports, service.                        |
+| `src/publishing/ArtifactPublishing.ts`        | Service, tagged error, `Effect.fn`.               |
+| `src/telemetry/Telemetry.ts`                  | OpenTelemetry imports.                            |
+| `test/config/Config.test.ts`                  | `@effect/vitest` API.                             |
+| `test/domain/ArtifactUtils.test.ts`           | `Result` assertions.                              |
+| `test/publishing/ArtifactPublishing.test.ts`  | Service layer construction, `SqlError` import.    |
+| `test/http/Http.integration.test.ts`          | Likely none, but verify via integration run.      |
 
 ## Reuse
 
