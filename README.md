@@ -39,15 +39,15 @@ With direnv:
 ```sh
 echo 'AGENT_ARTIFACTS_WRITE_KEY=ap_test' > .env
 direnv allow
-pnpm install
-pnpm start
+bun install
+bun run start
 ```
 
 Without direnv:
 
 ```sh
-pnpm install
-AGENT_ARTIFACTS_WRITE_KEY=ap_test pnpm start
+bun install
+AGENT_ARTIFACTS_WRITE_KEY=ap_test bun run start
 ```
 
 Publish an artifact:
@@ -73,8 +73,9 @@ docker run --rm -p 3000:3000 \
 ## Development
 
 ```sh
-pnpm check
-pnpm test -- --run
+bun run check
+bun run lint
+bun run test -- --run
 ```
 
 The implementation uses Effect Platform for HTTP, Effect SQL SQLite for metadata, Effect Schema/Brand for core domain types, and filesystem storage for immutable artifact source.

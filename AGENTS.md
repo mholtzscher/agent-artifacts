@@ -16,7 +16,7 @@ Keep database schema management out of repository services. Repositories should 
 
 Do not create an Effect service just to run a one-time side effect. If there is no meaningful service API, prefer a named `Effect` or `Layer.effectDiscard` and compose/run it at the application edge.
 
-For SQLite migrations, prefer `@effect/sql-sqlite-node/SqliteMigrator` over the generic migrator unless there is a specific reason not to. Keep migrations append-only and split schema evolution into separate numbered migrations; do not modify an already-recorded migration to perform new schema changes.
+For SQLite migrations, prefer `@effect/sql-sqlite-bun/SqliteMigrator` over the generic migrator unless there is a specific reason not to. Keep migrations append-only and split schema evolution into separate numbered migrations; do not modify an already-recorded migration to perform new schema changes.
 
 Prefer tagged SQL for static SQL statements. Reserve `sql.unsafe` for truly dynamic SQL that cannot be represented with the tagged SQL API.
 

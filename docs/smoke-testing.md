@@ -27,16 +27,10 @@ A smoke test passes when:
 - Use write key `ap_test` for local smoke testing.
 - Run the app from Zellij.
 - Prefer `agent-browser` for automated browser verification.
-- Rebuild native modules from Zellij when needed. Zellij may use a different
-  `node` than the current shell, so rebuilding in the current shell can still
-  leave the app broken.
-
-If the native SQLite module was built for a different Node version, rebuild it
-in a short-lived Zellij pane before starting the app:
+- Make sure dependencies are installed with Bun before starting the app:
 
 ```sh
-zellij run --name rebuild-sqlite --cwd "$PWD" --close-on-exit -- \
-  sh -lc 'pnpm rebuild better-sqlite3'
+bun install
 ```
 
 ## 1. Start the app in Zellij
@@ -52,7 +46,7 @@ Start the app:
 
 ```sh
 zellij run --name artifact-app --cwd "$PWD" -- sh -lc \
-  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:3000 pnpm start'
+  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:3000 bun run start'
 ```
 
 Wait until the server is responding instead of doing a single immediate `curl`:
@@ -76,9 +70,7 @@ APP_PANE=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="a
 zellij action dump-screen -p terminal_$APP_PANE --full
 ```
 
-A native SQLite `NODE_MODULE_VERSION` error means `better-sqlite3` was rebuilt
-with a different `node`; run the Zellij rebuild command from the prerequisites,
-not a plain shell rebuild.
+If the app reports a SQLite open error, confirm `DATABASE_URL` resolves to a writable path and that the database directory can be created by the running process.
 
 ## 2. Generate a test HTML artifact
 
@@ -130,7 +122,7 @@ Extract the URL. Normalize relative URLs so the same variable works whether the
 API returns `/a/...` or an absolute URL:
 
 ```sh
-ARTIFACT_URL=$(node -e 'const r=require("/tmp/artifact-smoke-response.json"); console.log(r.artifactUrl.startsWith("http") ? r.artifactUrl : `http://localhost:3000${r.artifactUrl}`)')
+ARTIFACT_URL=$(bun -e 'const r = await import("/tmp/artifact-smoke-response.json", { with: { type: "json" } }); const url = r.default.artifactUrl; console.log(url.startsWith("http") ? url : `http://localhost:3000${url}`)')
 echo "$ARTIFACT_URL"
 ```
 

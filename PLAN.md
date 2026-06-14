@@ -10,7 +10,7 @@ Project vocabulary and decisions already exist in:
 - `docs/adr/0001-immutable-artifact-source.md` — published source is immutable; later edits are metadata-only.
 - `docs/adr/0002-same-origin-scripted-html-artifacts.md` — v1 intentionally permits scripted HTML on the app origin.
 - `docs/adr/0003-withdrawn-artifacts-retain-slugs.md` — withdrawn artifacts retain identity/metadata/slug; source and rendered routes return `410 Gone`.
-- `docs/adr/0004-effect-platform-http-server.md` — use `@effect/platform` and `@effect/platform-node` for the HTTP server.
+- `docs/adr/0004-effect-platform-http-server.md` — use `@effect/platform` and `@effect/platform-bun` for the HTTP server.
 - `agent-pages-implementation-handoff.md` — broad product/route/storage/API handoff.
 
 ## Approach
@@ -51,7 +51,7 @@ Existing reusable project assets:
 
 Dependencies to add:
 
-- `@effect/platform`, `@effect/platform-node` for the HTTP server per ADR 0004.
+- `@effect/platform`, `@effect/platform-bun` for the HTTP server per ADR 0004.
 - Effect SQL SQLite packages for metadata persistence.
 - Markdown renderer such as `markdown-it` or `marked`.
 - Small utilities for hashing, multipart handling if not covered by Effect Platform, and safe HTML escaping/page templates as needed.
@@ -87,8 +87,8 @@ Dependencies to add:
 
 ## Verification
 
-- Run `pnpm check`.
-- Run `pnpm test`.
+- Run `bun run check`.
+- Run `bun run test`.
 - Run HTTP integration tests for public reads, protected writes, and publish/read flows.
 - Manually publish a Markdown file and an HTML file locally, then verify `/`, `/a/:slug`, `/source/:slug`, and `/api/artifacts`.
 - Manually verify missing/invalid `X-Write-Key` responses and success path.

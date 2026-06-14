@@ -1,10 +1,21 @@
+import { createHash } from "crypto";
 import * as Result from "effect/Result";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import * as path from "node:path";
 
 import { ArtifactId, Slug, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js";
 
-export const makeArtifactId = (): ArtifactId => ArtifactId.make(randomUUID());
+const extensionOf = (filename: string): string => {
+  const basename = filename.split(/[\\/]/).at(-1) ?? filename;
+  const extStart = basename.lastIndexOf(".");
+  return extStart <= 0 ? "" : basename.slice(extStart);
+};
+
+const filenameWithoutExtension = (filename: string): string => {
+  const basename = filename.split(/[\\/]/).at(-1) ?? filename;
+  const extStart = basename.lastIndexOf(".");
+  return extStart <= 0 ? basename : basename.slice(0, extStart);
+};
+
+export const makeArtifactId = (): ArtifactId => ArtifactId.make(crypto.randomUUID());
 
 export const sha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -13,7 +24,7 @@ export const inferTitle = (filename: string, provided?: string | undefined): str
   if (trimmed !== undefined && trimmed !== "") {
     return trimmed;
   }
-  const basename = path.basename(filename, path.extname(filename));
+  const basename = filenameWithoutExtension(filename);
   return basename.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || "Untitled artifact";
 };
 
@@ -21,7 +32,7 @@ export const detectSourceType = (
   filename: string,
   contentType?: string | undefined,
 ): Result.Result<SourceType, UnsupportedSourceTypeError> => {
-  const extension = path.extname(filename).toLowerCase();
+  const extension = extensionOf(filename).toLowerCase();
   if (extension === ".md" || extension === ".markdown" || contentType === "text/markdown") {
     return Result.succeed("markdown");
   }
@@ -40,11 +51,9 @@ export const slugBase = (title: string): string => {
 };
 
 export const makeSlugCandidate = (title: string): Slug => {
-  const suffix = randomBytes(3)
-    .toString("base64url")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 4);
+  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(2)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
   return Slug.make(`${slugBase(title)}-${suffix || "x"}`);
 };
 
