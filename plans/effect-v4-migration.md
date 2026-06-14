@@ -4,15 +4,15 @@
 
 The project currently runs on **Effect v3**:
 
-| Package                   | Current          |
-| ------------------------- | ---------------- |
-| `effect`                  | `^3.21.3`        |
-| `@effect/platform`        | `^0.96.1`        |
-| `@effect/platform-bun`    | `4.0.0-beta.83`  |
-| `@effect/sql`             | `^0.51.1`        |
-| `@effect/sql-sqlite-bun`  | `4.0.0-beta.83`  |
-| `@effect/opentelemetry`   | `^0.63.0`        |
-| `@effect/vitest`          | `^0.29.0`        |
+| Package                  | Current         |
+| ------------------------ | --------------- |
+| `effect`                 | `^3.21.3`       |
+| `@effect/platform`       | `^0.96.1`       |
+| `@effect/platform-bun`   | `4.0.0-beta.83` |
+| `@effect/sql`            | `^0.51.1`       |
+| `@effect/sql-sqlite-bun` | `4.0.0-beta.83` |
+| `@effect/opentelemetry`  | `^0.63.0`       |
+| `@effect/vitest`         | `^0.29.0`       |
 
 Effect v4 is currently in **beta** (`4.0.0-beta.83`). We will target the latest v4 beta and use the new `effect/unstable/*` paths for HTTP, SQL, and observability modules. It unifies ecosystem packages under one version, consolidates many `@effect/platform` and `@effect/sql` modules into `effect`, and introduces breaking API renames. The core model stays the same.
 

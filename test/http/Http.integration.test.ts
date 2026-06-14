@@ -1,8 +1,8 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import * as fs from "node:fs/promises";
-import * as net from "node:net";
-import * as os from "node:os";
-import * as path from "node:path";
+import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
+import * as fs from "fs/promises";
+import * as net from "net";
+import * as os from "os";
+import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const writeKey = "ap_integration";
