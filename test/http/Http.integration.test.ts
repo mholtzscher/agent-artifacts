@@ -30,7 +30,7 @@ const getFreePort = () =>
 
 const startServer = () => {
   stderr = "";
-  child = spawn("pnpm", ["start"], {
+  child = spawn("bun", ["run", "start"], {
     cwd: process.cwd(),
     env: {
       ...process.env,

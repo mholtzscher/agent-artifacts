@@ -1,5 +1,5 @@
-import { SqliteClient } from "@effect/sql-sqlite-node";
-import * as SqliteMigrator from "@effect/sql-sqlite-node/SqliteMigrator";
+import { SqliteClient } from "@effect/sql-sqlite-bun";
+import * as SqliteMigrator from "@effect/sql-sqlite-bun/SqliteMigrator";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";

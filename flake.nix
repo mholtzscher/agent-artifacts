@@ -11,10 +11,7 @@
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         packages = with pkgs; [
-          corepack
-          nodejs_22
-          # For systems that do not ship with Python by default (required by `node-gyp`)
-          python3
+          bun
         ];
       };
     });

@@ -1,14 +1,12 @@
-FROM node:24-slim
+FROM oven/bun:1.3.13-slim
 
 WORKDIR /app
 
-RUN corepack enable
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY . .
-RUN pnpm check
+RUN bun run check
 
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -18,4 +16,4 @@ ENV STORAGE_DIR=/data/files
 EXPOSE 3000
 VOLUME ["/data"]
 
-CMD ["pnpm", "start"]
+CMD ["bun", "run", "start"]

@@ -8,20 +8,21 @@
     "url": "<PLACEHOLDER>"
   },
   "type": "module",
+  "packageManager": "bun@1.3.13",
   "publishConfig": {
     "access": "public",
     "directory": "dist"
   },
   "scripts": {
     "codegen": "build-utils prepare-v2",
-    "build": "pnpm build-esm && pnpm build-annotate && pnpm build-cjs && build-utils pack-v2",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v2",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "check": "tsc -b tsconfig.json",
     "lint": "eslint \"**/{src,test,examples,scripts,dtslint}/**/*.{ts,mjs}\"",
-    "lint-fix": "pnpm lint --fix",
-    "start": "tsx src/Program.ts",
+    "lint-fix": "bun run lint --fix",
+    "start": "bun src/Program.ts",
     "test": "vitest",
     "coverage": "vitest --coverage",
     "format": "oxfmt .",
@@ -29,8 +30,8 @@
   },
   "dependencies": {
     "@effect/opentelemetry": "4.0.0-beta.83",
-    "@effect/platform-node": "4.0.0-beta.83",
-    "@effect/sql-sqlite-node": "4.0.0-beta.83",
+    "@effect/platform-bun": "4.0.0-beta.83",
+    "@effect/sql-sqlite-bun": "4.0.0-beta.83",
     "@opentelemetry/exporter-logs-otlp-http": "^0.218.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
     "@opentelemetry/sdk-logs": "^0.218.0",
@@ -45,11 +46,13 @@
     "@babel/plugin-transform-export-namespace-from": "^7.29.7",
     "@babel/plugin-transform-modules-commonjs": "^7.29.7",
     "@effect/build-utils": "^0.8.9",
+    "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "latest",
     "@effect/vitest": "4.0.0-beta.83",
     "@eslint/compat": "2.1.0",
     "@eslint/eslintrc": "3.3.5",
     "@eslint/js": "10.0.1",
+    "@types/bun": "^1.3.13",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.9.2",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
@@ -62,11 +65,12 @@
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "eslint-plugin-sort-destructure-keys": "^3.0.0",
     "oxfmt": "^0.54.0",
-    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
-  "packageManager": "pnpm@10.14.0",
+  "workspaces": [
+    "."
+  ],
   "effect": {
     "generateExports": {
       "include": [

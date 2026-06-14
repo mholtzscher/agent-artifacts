@@ -4,15 +4,15 @@
 
 The project currently runs on **Effect v3**:
 
-| Package                   | Current    |
-| ------------------------- | ---------- |
-| `effect`                  | `^3.21.3`  |
-| `@effect/platform`        | `^0.96.1`  |
-| `@effect/platform-node`   | `^0.107.0` |
-| `@effect/sql`             | `^0.51.1`  |
-| `@effect/sql-sqlite-node` | `^0.52.0`  |
-| `@effect/opentelemetry`   | `^0.63.0`  |
-| `@effect/vitest`          | `^0.29.0`  |
+| Package                   | Current          |
+| ------------------------- | ---------------- |
+| `effect`                  | `^3.21.3`        |
+| `@effect/platform`        | `^0.96.1`        |
+| `@effect/platform-bun`    | `4.0.0-beta.83`  |
+| `@effect/sql`             | `^0.51.1`        |
+| `@effect/sql-sqlite-bun`  | `4.0.0-beta.83`  |
+| `@effect/opentelemetry`   | `^0.63.0`        |
+| `@effect/vitest`          | `^0.29.0`        |
 
 Effect v4 is currently in **beta** (`4.0.0-beta.83`). We will target the latest v4 beta and use the new `effect/unstable/*` paths for HTTP, SQL, and observability modules. It unifies ecosystem packages under one version, consolidates many `@effect/platform` and `@effect/sql` modules into `effect`, and introduces breaking API renames. The core model stays the same.
 
@@ -71,14 +71,14 @@ Key v4 reference mappings used:
 ## Steps
 
 - [ ] **Pin target version**: update all Effect ecosystem packages in `package.json` to the latest v4 beta (`^4.0.0-beta.83` or newer). Remove `@effect/platform` and `@effect/sql` from dependencies (their modules now ship inside `effect`).
-- [ ] **Install and baseline**: run `pnpm install`, then `pnpm check` to capture the full set of compile errors.
+- [ ] **Install and baseline**: run `bun install`, then `bun run check` to capture the full set of compile errors.
 - [ ] **Import migration pass**: rewrite imports across `src` and `test` per the v3→v4 import map, focusing on:
   - `@effect/platform` → `effect/unstable/http`
   - `@effect/platform/Path` → `effect/Path`
   - `@effect/platform/FileSystem` → `effect/FileSystem`
   - `@effect/sql` → `effect/unstable/sql`
   - `@effect/sql/SqlError` → `effect/unstable/sql/SqlError`
-  - `@effect/sql-sqlite-node` → stays as a separate package, bumped to v4 beta
+  - `@effect/sql-sqlite-bun` → stays as a separate package, bumped to v4 beta
   - `@effect/opentelemetry/NodeSdk` → migrate into `effect/unstable/observability` or the matching v4 `@effect/opentelemetry` export
 - [ ] **Service migration pass**: convert each `Effect.Service` class to `Context.Service` with `make`, and replace auto-generated `.Default` layers with explicit `static layer = Layer.effect(this, this.make)` layers wired via `Layer.provide`.
 - [ ] **Schema migration pass**:
@@ -89,15 +89,15 @@ Key v4 reference mappings used:
 - [ ] **Either/Result migration pass**: update `src/domain/ArtifactUtils.ts` and tests to use `Result` instead of `Either`.
 - [ ] **Error handling pass**: rename any `Effect.catchAll`/`catchAllCause` calls.
 - [ ] **Yieldable compile fixes**: ensure no code passes `Option`, `Result`, or services directly to `Effect` combinators expecting `Effect`; convert with `.asEffect()` or use `Effect.gen`.
-- [ ] **Type check**: run `pnpm check` until clean.
-- [ ] **Unit tests**: run `pnpm test` and fix failures.
+- [ ] **Type check**: run `bun run check` until clean.
+- [ ] **Unit tests**: run `bun run test` and fix failures.
 - [ ] **Integration tests**: run HTTP integration tests and manual publish/read flow.
-- [ ] **Lint**: run `pnpm lint` and fix any import-sort or codegen issues.
+- [ ] **Lint**: run `bun run lint` and fix any import-sort or codegen issues.
 
 ## Verification
 
-- `pnpm check` passes with no TypeScript errors.
-- `pnpm test` passes (unit + integration).
+- `bun run check` passes with no TypeScript errors.
+- `bun run test` passes (unit + integration).
 - Manual smoke test: start server, publish Markdown and HTML artifacts, verify feed, rendered page, and source endpoints.
 - Docker build still succeeds if dependencies changed.
 
