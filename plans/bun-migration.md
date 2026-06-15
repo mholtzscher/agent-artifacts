@@ -47,7 +47,7 @@ Initial expected files:
 ## Reuse
 
 - Keep `vitest` for tests.
-- Reassess the rest of the build/check toolchain instead of keeping it by default: keep `typescript`/`tsc` only if we still want a dedicated typecheck command because Bun does not replace TypeScript typechecking; remove Babel and `@effect/build-utils` if the package no longer needs library-style ESM/CJS build artifacts; keep or remove ESLint based on whether we want linting as a project quality gate.
+- Reassess the rest of the build/check toolchain instead of keeping it by default: keep `typescript`/`tsc` only if we still want a dedicated typecheck command because Bun does not replace TypeScript typechecking; remove Babel and `@effect/build-utils` if the package no longer needs library-style ESM/CJS build artifacts; keep Oxlint as the linting quality gate.
 - Add Bun-specific Effect packages: `@effect/platform-bun` and `@effect/sql-sqlite-bun`.
 - Remove replaced Node-specific dependencies: `@effect/platform-node`, `@effect/sql-sqlite-node`, and `tsx`.
 - Switch the current application edge in `src/Program.ts` from `NodeHttpServer`, `NodeRuntime`, `NodeServices`, and `node:http` to Bun runtime/platform APIs.
@@ -60,7 +60,7 @@ Initial expected files:
 ## Steps
 
 - [ ] Update `package.json`: set `packageManager` to the chosen Bun version, convert script-internal `pnpm` calls to `bun run`, change `start` from `tsx src/Program.ts` to a Bun runtime invocation, add Bun-specific Effect packages, remove `tsx` plus replaced Node-specific Effect packages, and make scripts read naturally for a Bun-first project.
-- [ ] Simplify `package.json` scripts/dependencies for a Bun-first app: keep `test` on Vitest; keep a `check` script with `tsc --noEmit` or project references only if typechecking remains desired; remove Babel/`build-utils`/library packaging scripts if they are not needed for runtime, Docker, or publishing; keep ESLint only if linting remains an intentional quality gate.
+- [ ] Simplify `package.json` scripts/dependencies for a Bun-first app: keep `test` on Vitest; keep a `check` script with `tsc --noEmit` or project references only if typechecking remains desired; remove Babel/`build-utils`/library packaging scripts if they are not needed for runtime, Docker, or publishing; keep Oxlint as the linting quality gate.
 - [ ] Run `bun install` to generate `bun.lock`; remove `pnpm-lock.yaml` and `pnpm-workspace.yaml`; ensure `.dockerignore` does not exclude `bun.lock`.
 - [ ] Update `src/Program.ts` to use `@effect/platform-bun` server/runtime/services, remove `node:http`, and keep the existing layer wiring semantics.
 - [ ] Update `src/repository/ArtifactDatabase.ts` to use `@effect/sql-sqlite-bun` `SqliteClient`/`SqliteMigrator`; preserve existing migrations, schema, migration table, and `DATABASE_URL=file:...` path handling.
@@ -78,7 +78,7 @@ Initial expected files:
 
 - `bun install --frozen-lockfile`
 - `bun run check` if a dedicated TypeScript typecheck script remains
-- `bun run lint` if ESLint remains an intentional quality gate
+- `bun run lint`
 - `bun run test -- --run`
 - `bun run build` only if a build/package script remains
 - `AGENT_ARTIFACTS_WRITE_KEY=ap_test bun run start` starts the server without runtime errors.
