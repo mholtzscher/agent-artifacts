@@ -19,7 +19,7 @@ export const makeArtifactId = (): ArtifactId => ArtifactId.make(crypto.randomUUI
 
 export const sha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
-export const inferTitle = (filename: string, provided?: string | undefined): string => {
+export const inferTitle = (filename: string, provided?: string): string => {
   const trimmed = provided?.trim();
   if (trimmed !== undefined && trimmed !== "") {
     return trimmed;
@@ -30,7 +30,7 @@ export const inferTitle = (filename: string, provided?: string | undefined): str
 
 export const detectSourceType = (
   filename: string,
-  contentType?: string | undefined,
+  contentType?: string,
 ): Result.Result<SourceType, UnsupportedSourceTypeError> => {
   const extension = extensionOf(filename).toLowerCase();
   if (extension === ".md" || extension === ".markdown" || contentType === "text/markdown") {
