@@ -9,6 +9,7 @@
   },
   "type": "module",
   "scripts": {
+    "agent-validate": "bash scripts/agent-validate.sh",
     "check": "tsc -b tsconfig.json",
     "lint": "oxlint src test",
     "lint-fix": "bun run lint --fix",

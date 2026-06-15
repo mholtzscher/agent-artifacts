@@ -1,5 +1,15 @@
 # Agent Instructions
 
+## Required validation
+
+After all work, run `bun run agent-validate` from the repository root before
+considering the task complete. It runs the same checks as CI in order:
+typecheck, lint, format check, and tests. The chain short-circuits on the
+first failure.
+
+If `format:check` fails, run `bun run format` to fix formatting, then re-run
+`bun run agent-validate`.
+
 ## Effect usage
 
 When writing or refactoring Effect services, prefer `Effect.Service` for concise service definitions, unless existing local conventions or compatibility constraints make `Context.Tag` clearer.
