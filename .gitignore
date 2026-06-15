@@ -5,4 +5,4 @@ dist/
 .DS_Store
 /data
 /.tsbuildinfo
-/build/src
+/build
