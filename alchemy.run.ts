@@ -26,10 +26,18 @@ export default Alchemy.Stack<
     const database = yield* Cloudflare.D1Database("database", {
       name: `${resourcePrefix}-d1`,
       migrationsDir: "migrations/d1",
+      primaryLocationHint: "wnam",
+      // Route reads to the nearest D1 replica. This is safe for the public
+      // read paths (feed, artifact page, source download) because artifacts are
+      // immutable after publish. The publish path checks slug uniqueness, but
+      // collisions are unlikely because slug suffixes are random; a duplicate
+      // would still fail the unique constraint on insert.
+      readReplication: { mode: "auto" },
     });
 
     const sources = yield* Cloudflare.R2Bucket("sources", {
       name: `${resourcePrefix}-sources`,
+      locationHint: "wnam",
     });
 
     const productionDomain = "artifacts.holtzscher.com";
@@ -42,19 +50,27 @@ export default Alchemy.Stack<
       main: "./src/worker.ts",
       url: !isProduction,
       ...(isProduction ? { domain: productionDomain } : {}),
-      compatibility: { flags: ["nodejs_compat"] },
+      compatibility: {
+        // Pin to a recent stable date. nodejs_compat is still required.
+        date: "2025-12-02",
+        flags: ["nodejs_compat"],
+      },
+      // Place the Worker near D1/R2 instead of at the edge. This reduces
+      // round-trip time for backend calls, which is the dominant source of
+      // latency for this DB/R2-heavy app.
+      placement: { mode: "smart" },
       observability: {
         enabled: true,
-        headSamplingRate: 1,
+        headSamplingRate: isProduction ? 0.1 : 1,
         logs: {
           enabled: true,
           invocationLogs: true,
-          headSamplingRate: 1,
+          headSamplingRate: isProduction ? 0.1 : 1,
           persist: true,
         },
         traces: {
           enabled: true,
-          headSamplingRate: 1,
+          headSamplingRate: isProduction ? 0.1 : 1,
           persist: true,
         },
       },
