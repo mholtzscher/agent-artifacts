@@ -1,28 +1,16 @@
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import type * as Layer from "effect/Layer";
-import * as Redacted from "effect/Redacted";
-
-const requireEnv = (name: string) => {
-  const value = process.env[name];
-  if (value === undefined || value.trim() === "") {
-    throw new Error(`${name} is required for Alchemy deployments and dev.`);
-  }
-  return value;
-};
-
-const writeKey = requireEnv("AGENT_ARTIFACTS_WRITE_KEY");
 
 type CloudflareProviders = Layer.Success<ReturnType<typeof Cloudflare.providers>>;
 
-const ensureSupportedStage = (stage: string) =>
-  stage === "staging" || stage === "production" || stage === "local"
-    ? Effect.void
-    : Effect.die(new Error(`Unsupported stage '${stage}'. Use local, staging, or production.`));
-
 export default Alchemy.Stack<
-  { readonly stage: string; readonly url: Alchemy.Output<string | undefined, never> },
+  {
+    readonly stage: string;
+    readonly url: Alchemy.Output<string | undefined, never>;
+  },
   CloudflareProviders
 >(
   "agent-artifacts",
@@ -32,7 +20,6 @@ export default Alchemy.Stack<
   },
   Effect.gen(function* () {
     const stage = yield* Alchemy.Stage;
-    yield* ensureSupportedStage(stage);
 
     const resourcePrefix = `agent-artifacts-${stage}`;
 
@@ -45,16 +32,22 @@ export default Alchemy.Stack<
       name: `${resourcePrefix}-sources`,
     });
 
+    const productionDomain = "artifacts.holtzscher.com";
+    const isProduction = stage === "production";
+
+    const publicBaseUrl = isProduction ? `https://${productionDomain}` : (process.env.PUBLIC_BASE_URL ?? "");
+
     const worker = yield* Cloudflare.Worker("worker", {
       name: `${resourcePrefix}-worker`,
       main: "./src/worker.ts",
-      url: true,
+      url: !isProduction,
+      ...(isProduction ? { domain: productionDomain } : {}),
       compatibility: { flags: ["nodejs_compat"] },
       env: {
         DB: database,
         SOURCES: sources,
-        PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? "",
-        AGENT_ARTIFACTS_WRITE_KEY: Redacted.make(writeKey),
+        PUBLIC_BASE_URL: publicBaseUrl,
+        AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("AGENT_ARTIFACTS_WRITE_KEY"),
       },
     });
 
