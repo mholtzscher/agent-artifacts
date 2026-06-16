@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import { type ArtifactId, type SourceType } from "../../domain/Artifact.js";
 import { extensionForSourceType } from "../../domain/ArtifactUtils.js";
 import { ArtifactSourceStorage, ArtifactSourceStorageBackendError } from "../ArtifactSourceStorage.js";
-import { CloudflareBindingsService } from "../../runtime/cloudflare/CloudflareBindings.js";
+import { CloudflareBindingsService } from "../../cloudflare/Bindings.js";
 
 export const r2SourceKeyFor = (id: ArtifactId, sourceType: SourceType) =>
   `artifacts/${id}/source${extensionForSourceType(sourceType)}`;

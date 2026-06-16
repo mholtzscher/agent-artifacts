@@ -76,7 +76,7 @@ export const ArtifactPublishingLive = Layer.effect(
           description: input.description,
           sourceType,
           sourceFilename: input.sourceFilename,
-          sha256: sha256Hex(input.sourceBytes),
+          sha256: yield* sha256Hex(input.sourceBytes),
           sizeBytes: input.sourceBytes.byteLength,
           project: input.project,
           repoFullName: input.repoFullName,

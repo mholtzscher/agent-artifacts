@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
 import { D1ArtifactRepositoryLive } from "../../src/repository/d1/D1ArtifactRepository.js";
-import { CloudflareBindingsLive, type CloudflareBindings } from "../../src/runtime/cloudflare/CloudflareBindings.js";
+import { CloudflareBindingsLive, type CloudflareBindings } from "../../src/cloudflare/Bindings.js";
 import { Artifact, type ArtifactId, type Slug } from "../../src/domain/Artifact.js";
 import { ArtifactRepository } from "../../src/repository/ArtifactRepository.js";
 

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
-import { CloudflareBindingsLive, type CloudflareBindings } from "../../src/runtime/cloudflare/CloudflareBindings.js";
+import { CloudflareBindingsLive, type CloudflareBindings } from "../../src/cloudflare/Bindings.js";
 import { R2ArtifactSourceStorageLive, r2SourceKeyFor } from "../../src/source-storage/r2/R2ArtifactSourceStorage.js";
 import { ArtifactSourceStorage } from "../../src/source-storage/ArtifactSourceStorage.js";
 import type { ArtifactId } from "../../src/domain/Artifact.js";

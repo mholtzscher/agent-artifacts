@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Artifacts — Effect layer architecture</title>
+    <script>
+      (function () {
+        const saved = localStorage.getItem("theme");
+        const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
+    <style>
+      :root {
+        --bg: #faf9f5;
+        --surface: #ffffff;
+        --surface2: #f0eee6;
+        --ink: #141413;
+        --body: #3d3d3a;
+        --muted: #87867f;
+        --line: #d1cfc5;
+        --line-soft: #e6e3da;
+        --clay: #d97757;
+        --clay-soft: rgba(217, 119, 87, 0.1);
+        --olive: #788c5d;
+        --olive-soft: rgba(120, 140, 93, 0.12);
+        --gold: #c9a45c;
+        --blue: #5b7e96;
+        --zone: rgba(20, 20, 19, 0.025);
+        --zone-line: #d1cfc5;
+        --serif: ui-serif, Georgia, "Times New Roman", serif;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      html.dark {
+        --bg: #141413;
+        --surface: #1f1f1d;
+        --surface2: #2a2a28;
+        --ink: #faf9f5;
+        --body: #d1cfc5;
+        --muted: #87867f;
+        --line: #3d3d3a;
+        --line-soft: #2a2a28;
+        --clay: #e48a6e;
+        --clay-soft: rgba(228, 138, 110, 0.14);
+        --olive: #9db07c;
+        --olive-soft: rgba(157, 176, 124, 0.16);
+        --gold: #d4b36f;
+        --blue: #7fa3bc;
+        --zone: rgba(250, 249, 245, 0.03);
+        --zone-line: #3d3d3a;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--body);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ── top bar ─────────────────────────────── */
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--line-soft);
+        flex: none;
+      }
+      .bar h1 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 19px;
+        color: var(--ink);
+        letter-spacing: -0.01em;
+      }
+      .bar .sub {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        padding: 5px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .chip:hover {
+        color: var(--ink);
+        border-color: var(--muted);
+      }
+      .chip.on {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: var(--bg);
+      }
+      #themeToggle {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      #themeToggle:hover {
+        color: var(--ink);
+        border-color: var(--muted);
+      }
+
+      /* ── stage ───────────────────────────────── */
+      .stage {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+      }
+      .stage svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* zones */
+      .zone rect {
+        fill: var(--zone);
+        stroke: var(--zone-line);
+        stroke-width: 1;
+        stroke-dasharray: 5 5;
+        rx: 16;
+      }
+      .zone .ztitle {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        fill: var(--muted);
+      }
+      .zone .zsub {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        fill: var(--muted);
+        opacity: 0.75;
+      }
+
+      /* nodes */
+      .node {
+        cursor: pointer;
+      }
+      .node rect {
+        fill: var(--surface);
+        stroke: var(--line);
+        stroke-width: 1.5;
+        rx: 10;
+        transition:
+          stroke 0.15s ease,
+          filter 0.15s ease;
+      }
+      .node:hover rect {
+        stroke: var(--muted);
+      }
+      .node.sel rect {
+        stroke: var(--clay) !important;
+        stroke-width: 2;
+      }
+      .node .t {
+        font-family: var(--sans);
+        font-size: 14.5px;
+        font-weight: 600;
+        fill: var(--ink);
+        pointer-events: none;
+      }
+      .node .m {
+        font-family: var(--mono);
+        font-size: 11px;
+        fill: var(--muted);
+        pointer-events: none;
+      }
+      .node .k {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        fill: var(--clay);
+        pointer-events: none;
+      }
+      .node.gate rect {
+        fill: var(--clay-soft);
+        stroke: var(--clay);
+      }
+      .node.store rect {
+        fill: var(--surface2);
+      }
+      .node.do rect {
+        fill: var(--olive-soft);
+        stroke: var(--olive);
+      }
+      .node.svc rect {
+        fill: var(--olive-soft);
+        stroke: var(--olive);
+      }
+      .node.contract rect {
+        fill: var(--surface2);
+        stroke: var(--muted);
+        stroke-dasharray: 4 3;
+      }
+      .node.ext rect {
+        stroke-dasharray: 6 3;
+      }
+      .node.compose rect {
+        fill: var(--clay-soft);
+        stroke: var(--clay);
+        stroke-width: 2;
+      }
+
+      /* edges */
+      .edge {
+        stroke: var(--muted);
+        stroke-width: 1.6;
+        fill: none;
+        marker-end: url(#a-mut);
+        transition:
+          opacity 0.2s ease,
+          stroke 0.2s ease;
+      }
+      .edge.dash {
+        stroke-dasharray: 5 4;
+      }
+      .elbl {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        fill: var(--muted);
+        transition: opacity 0.2s ease;
+      }
+
+      /* flow highlighting */
+      .stage.flowing .edge {
+        opacity: 0.13;
+      }
+      .stage.flowing .elbl {
+        opacity: 0.13;
+      }
+      .stage.flowing .node {
+        opacity: 0.3;
+      }
+      .stage.flowing .zone {
+        opacity: 0.45;
+      }
+      .stage.flowing .edge.lit {
+        opacity: 1;
+        stroke: var(--clay);
+        marker-end: url(#a-clay);
+        stroke-dasharray: 7 5;
+        animation: march 0.9s linear infinite;
+      }
+      .stage.flowing .elbl.lit {
+        opacity: 1;
+        fill: var(--clay);
+      }
+      .stage.flowing .node.lit {
+        opacity: 1;
+      }
+      .stage.flowing .node.lit rect {
+        stroke: var(--clay);
+      }
+      @keyframes march {
+        to {
+          stroke-dashoffset: -12;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .stage.flowing .edge.lit {
+          animation: none;
+        }
+      }
+
+      .badge {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .badge circle {
+        fill: var(--clay);
+      }
+      .badge text {
+        fill: var(--bg);
+      }
+      .stage:not(.flowing) .badge {
+        display: none;
+      }
+
+      /* ── floating cards ──────────────────────── */
+      .card {
+        position: absolute;
+        max-width: 360px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+      }
+      #detail {
+        right: 16px;
+        bottom: 16px;
+        width: 340px;
+      }
+      #detail h3 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 17px;
+        color: var(--ink);
+        margin-bottom: 2px;
+      }
+      #detail .meta {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      #detail p {
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+      #detail p code,
+      #flowcap code {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--clay);
+      }
+      #flowcap {
+        left: 16px;
+        bottom: 16px;
+        max-width: 460px;
+        display: none;
+      }
+      #flowcap.show {
+        display: block;
+      }
+      #flowcap .fname {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--clay);
+        margin-bottom: 6px;
+      }
+      #flowcap ol {
+        margin-left: 18px;
+      }
+      #flowcap li {
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+      .src {
+        position: absolute;
+        top: 10px;
+        right: 16px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        opacity: 0.8;
+      }
+      @media (max-width: 880px) {
+        body {
+          overflow: auto;
+        }
+        .stage {
+          min-height: 70vh;
+        }
+        #detail {
+          position: static;
+          width: auto;
+          margin: 10px 16px;
+        }
+        #flowcap {
+          position: static;
+          margin: 0 16px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <div>
+        <h1>Agent Artifacts — Effect layer structure</h1>
+        <div class="sub">alchemy · cloudflare worker · effect layers · d1 + r2</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="chips" id="chips">
+        <button class="chip on" data-flow="all">Everything</button>
+        <button class="chip" data-flow="publish">Publish</button>
+        <button class="chip" data-flow="feed">Feed</button>
+        <button class="chip" data-flow="page">Artifact page</button>
+        <button class="chip" data-flow="source">Raw source</button>
+        <button class="chip" data-flow="boot">Boot</button>
+      </div>
+      <button id="themeToggle">Theme</button>
+    </div>
+
+    <div class="stage" id="stage">
+      <svg
+        viewBox="0 0 1600 1000"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="Agent Artifacts Effect layer architecture diagram"
+      >
+        <defs>
+          <marker
+            id="a-mut"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6.5"
+            markerHeight="6.5"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)" />
+          </marker>
+          <marker
+            id="a-clay"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6.5"
+            markerHeight="6.5"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" style="fill: var(--clay)" />
+          </marker>
+        </defs>
+
+        <!-- ══════════════════════════════════════════
+       ALCHEMY STRIP
+       ══════════════════════════════════════════ -->
+        <g class="zone" id="z-alchemy">
+          <rect x="40" y="40" width="1520" height="100" />
+        </g>
+
+        <g class="node ext" data-k="alchemy">
+          <rect x="60" y="55" width="180" height="70" />
+          <text class="t" x="75" y="80">Alchemy</text>
+          <text class="m" x="75" y="98">Stack(stage)</text>
+          <text class="m" x="75" y="112">Effect.gen</text>
+        </g>
+
+        <g class="node store" data-k="d1prov">
+          <rect x="320" y="55" width="220" height="70" />
+          <text class="t" x="338" y="80">D1 database</text>
+          <text class="m" x="338" y="98">migrationsDir: migrations/d1</text>
+          <text class="m" x="338" y="112">artifact-agent-{stage}-d1</text>
+        </g>
+
+        <g class="node store" data-k="r2prov">
+          <rect x="620" y="55" width="220" height="70" />
+          <text class="t" x="638" y="80">R2 bucket</text>
+          <text class="m" x="638" y="98">immutable source bytes</text>
+          <text class="m" x="638" y="112">agent-artifacts-{stage}-sources</text>
+        </g>
+
+        <g class="node" data-k="workerprov">
+          <rect x="920" y="55" width="300" height="70" />
+          <text class="t" x="938" y="80">Worker</text>
+          <text class="m" x="938" y="98">main: src/worker.ts · nodejs_compat</text>
+          <text class="m" x="938" y="112">env: DB · SOURCES · URL · KEY</text>
+        </g>
+
+        <g class="node gate" data-k="migrateprov">
+          <rect x="1300" y="55" width="240" height="70" />
+          <text class="t" x="1318" y="80">migrations/0001</text>
+          <text class="k" x="1318" y="98">schema lifecycle</text>
+          <text class="m" x="1318" y="112">artifacts · 18 columns</text>
+        </g>
+
+        <text class="ztitle" x="60" y="35">Provisioning · alchemy.run.ts</text>
+
+        <path class="edge" id="e-alch-d1" d="M240,80 L330,80" />
+        <path class="edge" id="e-alch-r2" d="M530,80 L630,80" />
+        <path class="edge" id="e-alch-w" d="M830,80 L930,80" />
+        <path class="edge" id="e-alch-m" d="M1210,80 L1310,80" />
+
+        <text class="elbl" data-e="e-alch-d1" x="270" y="72">creates</text>
+        <text class="elbl" data-e="e-alch-r2" x="565" y="72">creates</text>
+        <text class="elbl" data-e="e-alch-w" x="868" y="72">creates</text>
+        <text class="elbl" data-e="e-alch-m" x="1240" y="72">migrates</text>
+
+        <!-- env injection: Worker → worker boundary -->
+        <path class="edge dash" id="e-w-env" d="M1070,125 C 1070,150 400,150 400,200" />
+
+        <text class="elbl" data-e="e-w-env" x="660" y="145">env → CloudflareBindingsService</text>
+
+        <!-- ══════════════════════════════════════════
+       MAIN GRID
+       ══════════════════════════════════════════ -->
+
+        <!-- Column 1: Clients (x=40-240) -->
+        <g class="zone" id="z-clients">
+          <rect x="40" y="175" width="200" height="780" />
+          <text class="ztitle" x="60" y="200">Clients</text>
+          <text class="zsub" x="60" y="216">same five routes</text>
+        </g>
+
+        <!-- Column 2: Worker boundary (x=260-540) -->
+        <g class="zone" id="z-worker">
+          <rect x="260" y="175" width="280" height="780" />
+          <text class="ztitle" x="280" y="200">Worker boundary</text>
+          <text class="zsub" x="280" y="216">src/worker.ts · src/cloudflare/App.ts</text>
+        </g>
+
+        <!-- Column 3: App composition (x=560-1280) -->
+        <g class="zone" id="z-app">
+          <rect x="560" y="175" width="720" height="780" />
+          <text class="ztitle" x="580" y="200">App composition</text>
+          <text class="zsub" x="580" y="216">routes · service · contracts · adapters · composition root</text>
+        </g>
+
+        <!-- Column 4: Cloudflare backing (x=1300-1560) -->
+        <g class="zone" id="z-cloudflare">
+          <rect x="1300" y="175" width="260" height="780" />
+          <text class="ztitle" x="1320" y="200">Cloudflare backing</text>
+          <text class="zsub" x="1320" y="216">D1 metadata · R2 source bytes</text>
+        </g>
+
+        <!-- ══════════════════════════════════════════
+       CLIENTS (column 1)
+       ══════════════════════════════════════════ -->
+        <g class="node" data-k="browser">
+          <rect x="60" y="250" width="160" height="70" />
+          <text class="t" x="78" y="278">Browser</text>
+          <text class="m" x="78" y="297">/ · /a/:slug</text>
+          <text class="m" x="78" y="312">no credential</text>
+        </g>
+        <g class="node" data-k="agent">
+          <rect x="60" y="350" width="160" height="70" />
+          <text class="t" x="78" y="378">Agent / curl</text>
+          <text class="m" x="78" y="397">POST /api/artifacts</text>
+          <text class="m" x="78" y="412">X-Write-Key header</text>
+        </g>
+        <g class="node" data-k="reader">
+          <rect x="60" y="450" width="160" height="70" />
+          <text class="t" x="78" y="478">Anyone with a URL</text>
+          <text class="m" x="78" y="497">/a/:slug · /source/:slug</text>
+          <text class="m" x="78" y="512">link is the credential</text>
+        </g>
+        <g class="node" data-k="jsonfeed">
+          <rect x="60" y="550" width="160" height="70" />
+          <text class="t" x="78" y="578">JSON consumer</text>
+          <text class="m" x="78" y="597">GET /api/artifacts</text>
+          <text class="m" x="78" y="612">artifacts[] list</text>
+        </g>
+
+        <!-- ══════════════════════════════════════════
+       WORKER BOUNDARY (column 2)
+       ══════════════════════════════════════════ -->
+        <g class="node" data-k="worker">
+          <rect x="280" y="220" width="240" height="60" />
+          <text class="t" x="295" y="245">Worker.fetch</text>
+          <text class="m" x="295" y="262">src/worker.ts</text>
+          <text class="m" x="295" y="275">fetch(request, env)</text>
+        </g>
+
+        <g class="node gate" data-k="handler">
+          <rect x="280" y="310" width="240" height="60" />
+          <text class="t" x="295" y="335">handlerForCloudflareEnv</text>
+          <text class="k" x="295" y="353">handler cache · WeakMap</text>
+          <text class="m" x="295" y="366">toWebHandler · one per env</text>
+        </g>
+
+        <g class="node" data-k="bindings">
+          <rect x="280" y="400" width="240" height="60" />
+          <text class="t" x="295" y="425">CloudflareBindingsService</text>
+          <text class="m" x="295" y="442">env → typed Context.Service</text>
+          <text class="m" x="295" y="455">DB · SOURCES · URLs · write key</text>
+        </g>
+
+        <g class="node gate" data-k="writekey">
+          <rect x="280" y="490" width="240" height="60" />
+          <text class="t" x="295" y="515">requireWriteKey</text>
+          <text class="k" x="295" y="533">the one write gate</text>
+          <text class="m" x="295" y="546">x-write-key · 401 / 403</text>
+        </g>
+
+        <g class="node gate" data-k="readable">
+          <rect x="280" y="580" width="240" height="60" />
+          <text class="t" x="295" y="605">getReadableArtifact</text>
+          <text class="k" x="295" y="623">the one read filter</text>
+          <text class="m" x="295" y="636">checks ArtifactState · 410</text>
+        </g>
+
+        <g class="node" data-k="render">
+          <rect x="280" y="670" width="240" height="60" />
+          <text class="t" x="295" y="695">renderArtifactPage</text>
+          <text class="m" x="295" y="712">src/render/Render.ts</text>
+          <text class="m" x="295" y="725">markdown → HTML</text>
+        </g>
+
+        <!-- ══════════════════════════════════════════
+       APP COMPOSITION (column 3)
+       ══════════════════════════════════════════ -->
+
+        <!-- Row 1: AppRouter (full width of column 3) -->
+        <g class="node svc" data-k="router">
+          <rect x="580" y="220" width="680" height="60" />
+          <text class="t" x="595" y="245">AppRouter</text>
+          <text class="k" x="595" y="263">five routes · src/http/Http.ts</text>
+          <text class="m" x="800" y="245" text-anchor="middle">GET /</text>
+          <text class="m" x="900" y="245" text-anchor="middle">GET /api</text>
+          <text class="m" x="1000" y="245" text-anchor="middle">POST /api</text>
+          <text class="m" x="1110" y="245" text-anchor="middle">GET /a/:slug</text>
+          <text class="m" x="1230" y="245" text-anchor="middle">GET /source/:slug</text>
+        </g>
+
+        <!-- Row 2: ArtifactPublishing (left), handler helpers (right) -->
+        <g class="node svc" data-k="publish">
+          <rect x="580" y="310" width="320" height="100" />
+          <text class="t" x="595" y="335">ArtifactPublishing</text>
+          <text class="k" x="595" y="353">app service · the only one</text>
+          <text class="m" x="595" y="370">detect → id → title → slug</text>
+          <text class="m" x="595" y="385">sha256 → writeSource → insert</text>
+          <text class="m" x="595" y="400">on insert fail: removeSource</text>
+        </g>
+
+        <g class="node" data-k="feedhandler">
+          <rect x="920" y="310" width="340" height="44" />
+          <text class="t" x="935" y="332">getHome · getFeedJson</text>
+          <text class="m" x="935" y="347">listRecentArtifacts(50)</text>
+        </g>
+        <g class="node" data-k="readhandler">
+          <rect x="920" y="366" width="340" height="44" />
+          <text class="t" x="935" y="388">getArtifactPage · getSource</text>
+          <text class="m" x="935" y="403">getReadableArtifact · 410 on withdrawn</text>
+        </g>
+
+        <!-- Row 3: contracts -->
+        <g class="node contract" data-k="configsvc">
+          <rect x="580" y="440" width="220" height="58" />
+          <text class="t" x="595" y="465">AppConfigService</text>
+          <text class="k" x="595" y="482">contract</text>
+          <text class="m" x="595" y="495">publicBaseUrl · writeKey</text>
+        </g>
+        <g class="node contract" data-k="reposvc">
+          <rect x="820" y="440" width="200" height="58" />
+          <text class="t" x="835" y="465">ArtifactRepository</text>
+          <text class="k" x="835" y="482">contract</text>
+          <text class="m" x="835" y="495">insert / find / list</text>
+        </g>
+        <g class="node contract" data-k="storagesvc">
+          <rect x="1040" y="440" width="220" height="58" />
+          <text class="t" x="1055" y="465">ArtifactSourceStorage</text>
+          <text class="k" x="1055" y="482">contract</text>
+          <text class="m" x="1055" y="495">write / read / remove</text>
+        </g>
+
+        <!-- Row 4: adapters -->
+        <g class="node" data-k="cfgadapt">
+          <rect x="580" y="515" width="220" height="60" />
+          <text class="t" x="595" y="540">CloudflareAppConfigLive</text>
+          <text class="k" x="595" y="557">Layer.effect(AppConfigService)</text>
+          <text class="m" x="595" y="571">reads CloudflareBindings</text>
+        </g>
+        <g class="node" data-k="repadapt">
+          <rect x="820" y="515" width="200" height="60" />
+          <text class="t" x="835" y="540">D1ArtifactRepositoryLive</text>
+          <text class="k" x="835" y="557">Layer.effect(ArtifactRepository)</text>
+          <text class="m" x="835" y="571">prepared statements · Schema</text>
+        </g>
+        <g class="node" data-k="storageadapt">
+          <rect x="1040" y="515" width="220" height="60" />
+          <text class="t" x="1055" y="540">R2ArtifactSourceStorageLive</text>
+          <text class="k" x="1055" y="557">Layer.effect(ArtifactSourceStorage)</text>
+          <text class="m" x="1055" y="571">r2SourceKeyFor(id, type)</text>
+        </g>
+
+        <!-- Row 5: schema + domain -->
+        <g class="node" data-k="artrow">
+          <rect x="820" y="595" width="200" height="50" />
+          <text class="t" x="835" y="618">ArtifactRow schema</text>
+          <text class="m" x="835" y="633">row ↔ domain · dirty: 0|1</text>
+        </g>
+        <g class="node" data-k="domain">
+          <rect x="1040" y="595" width="220" height="50" />
+          <text class="t" x="1055" y="618">Domain types</text>
+          <text class="m" x="1055" y="633">Artifact · IDs · Slug · enums</text>
+        </g>
+
+        <!-- composition root (spans full width of column 3) -->
+        <g class="node compose" data-k="compose">
+          <rect x="580" y="800" width="680" height="140" />
+          <text class="t" x="595" y="826">CloudflareLive · composition root</text>
+          <text class="k" x="595" y="843">src/cloudflare/App.ts · the one place that knows all the layers</text>
+          <text class="m" x="595" y="868">const CloudflareLive = ArtifactPublishingLive.pipe(</text>
+          <text class="m" x="615" y="884">Layer.provideMerge(Layer.mergeAll(</text>
+          <text class="m" x="635" y="900">
+            CloudflareAppConfigLive, D1ArtifactRepositoryLive, R2ArtifactSourceStorageLive,
+          </text>
+          <text class="m" x="615" y="916">))</text>
+          <text class="m" x="595" y="932">);</text>
+        </g>
+
+        <!-- ══════════════════════════════════════════
+       CLOUDFLARE BACKING (column 4)
+       ══════════════════════════════════════════ -->
+        <g class="node do" data-k="d1">
+          <rect x="1320" y="220" width="220" height="120" />
+          <text class="t" x="1335" y="246">D1 · artifacts table</text>
+          <text class="m" x="1335" y="264">id · slug · title · sha256</text>
+          <text class="m" x="1335" y="278">source_type · state · created_at</text>
+          <text class="m" x="1335" y="292">18 columns · one row per artifact</text>
+          <text class="m" x="1335" y="308">SQL · metadata source of truth</text>
+          <text class="m" x="1335" y="322">indexed on slug, created_at</text>
+        </g>
+
+        <g class="node do" data-k="r2">
+          <rect x="1320" y="370" width="220" height="120" />
+          <text class="t" x="1335" y="396">R2 · sources bucket</text>
+          <text class="m" x="1335" y="414">key: artifacts/{id}/source.md</text>
+          <text class="m" x="1335" y="428">key: artifacts/{id}/source.html</text>
+          <text class="m" x="1335" y="442">immutable · written once</text>
+          <text class="m" x="1335" y="458">bytes only — no metadata</text>
+          <text class="m" x="1335" y="472">r2SourceKeyFor(id, sourceType)</text>
+        </g>
+
+        <g class="node" data-k="errors">
+          <rect x="1320" y="520" width="220" height="100" />
+          <text class="t" x="1335" y="546">Tagged errors</text>
+          <text class="m" x="1335" y="565">UnsupportedSourceTypeError → 415</text>
+          <text class="m" x="1335" y="580">SlugGenerationFailedError → 500</text>
+          <text class="m" x="1335" y="595">RepositoryBackendError → 500</text>
+          <text class="m" x="1335" y="610">StorageBackendError → 500</text>
+        </g>
+
+        <!-- ══════════════════════════════════════════
+       EDGES — clients → worker (request flow)
+       ══════════════════════════════════════════ -->
+        <path class="edge" id="e-pub" d="M220,385 L280,250" />
+        <path class="edge" id="e-feed" d="M220,285 L280,250" />
+        <path class="edge" id="e-page" d="M220,485 L280,250" />
+        <path class="edge" id="e-src" d="M220,585 L280,250" />
+
+        <text class="elbl" data-e="e-pub" x="222" y="370">POST</text>
+        <text class="elbl" data-e="e-feed" x="222" y="270">GET /</text>
+        <text class="elbl" data-e="e-page" x="222" y="465">GET /a/:slug</text>
+        <text class="elbl" data-e="e-src" x="222" y="575">GET /source</text>
+
+        <!-- ══════════════════════════════════════════
+       EDGES — worker boundary (internal)
+       ══════════════════════════════════════════ -->
+        <path class="edge" id="e-wk-handler" d="M400,280 L400,310" />
+        <path class="edge" id="e-handler-bindings" d="M400,370 L400,400" />
+
+        <text class="elbl" data-e="e-wk-handler" x="408" y="298">caches</text>
+        <text class="elbl" data-e="e-handler-bindings" x="408" y="388">yields env</text>
+
+        <!-- ══════════════════════════════════════════
+       EDGES — worker → app composition
+       ══════════════════════════════════════════ -->
+        <path class="edge" id="e-wk-router" d="M520,250 C 555,250 555,250 580,250" />
+        <text class="elbl" data-e="e-wk-router" x="530" y="242">dispatch</text>
+
+        <!-- ══════════════════════════════════════════
+       EDGES — app composition (request flow inside column 3)
+       ══════════════════════════════════════════ -->
+
+        <!-- Router → handlers (downward) -->
+        <path class="edge" id="e-router-pub" d="M650,280 L650,310" />
+        <text class="elbl" data-e="e-router-pub" x="655" y="298">POST</text>
+
+        <path class="edge" id="e-router-feed" d="M1020,280 L1020,310" />
+        <text class="elbl" data-e="e-router-feed" x="1025" y="298">/ · /api</text>
+
+        <path class="edge" id="e-router-read" d="M1170,280 L1170,366" />
+        <text class="elbl" data-e="e-router-read" x="1175" y="350">/a · /source</text>
+
+        <!-- requireWriteKey → AppConfigService -->
+        <path class="edge dash" id="e-writekey-cfg" d="M520,520 C 555,520 555,469 580,469" />
+        <text class="elbl" data-e="e-writekey-cfg" x="528" y="490">reads</text>
+
+        <!-- getReadableArtifact (worker) → reposvc -->
+        <path class="edge dash" id="e-readable-rep" d="M520,610 C 700,610 720,530 800,490" />
+
+        <!-- feedhandler → reposvc -->
+        <path class="edge dash" id="e-feedhandler-rep" d="M1100,340 C 1100,420 1000,440 920,469" />
+        <text class="elbl" data-e="e-feedhandler-rep" x="1090" y="425">listRecent</text>
+
+        <!-- readhandler → reposvc + storagesvc -->
+        <path class="edge dash" id="e-readhandler-rep" d="M1260,400 C 1260,440 1080,440 1000,469" />
+        <path class="edge dash" id="e-readhandler-sto" d="M1150,410 C 1150,425 1150,430 1150,440" />
+
+        <!-- publishing → reposvc (yield*) -->
+        <path class="edge dash" id="e-pub-rep" d="M820,380 L820,440" />
+        <text class="elbl" data-e="e-pub-rep" x="826" y="415">yield*</text>
+
+        <!-- publishing → storagesvc (yield*) -->
+        <path class="edge dash" id="e-pub-sto" d="M900,380 C 1020,380 1100,420 1140,440" />
+        <text class="elbl" data-e="e-pub-sto" x="950" y="415">yield*</text>
+
+        <!-- repadapt → reposvc (provides) -->
+        <path class="edge" id="e-repadapt-rep" d="M920,515 L920,498" />
+        <text class="elbl" data-e="e-repadapt-rep" x="926" y="510">provides</text>
+
+        <!-- storageadapt → storagesvc (provides) -->
+        <path class="edge" id="e-storageadapt-sto" d="M1150,515 L1150,498" />
+        <text class="elbl" data-e="e-storageadapt-sto" x="1156" y="510">provides</text>
+
+        <!-- cfgadapt → configsvc (provides) -->
+        <path class="edge" id="e-cfgadapt-cfg" d="M690,515 L690,498" />
+        <text class="elbl" data-e="e-cfgadapt-cfg" x="555" y="510">provides</text>
+
+        <!-- repadapt → D1 (real) -->
+        <path class="edge" id="e-repadapt-d1" d="M1020,545 C 1180,545 1240,290 1320,280" />
+        <text class="elbl" data-e="e-repadapt-d1" x="1180" y="400">SQL prepare / run / all</text>
+
+        <!-- storageadapt → R2 (real) -->
+        <path class="edge" id="e-storageadapt-r2" d="M1260,545 C 1300,545 1310,430 1320,430" />
+        <text class="elbl" data-e="e-storageadapt-r2" x="1230" y="490">put / get / delete</text>
+
+        <!-- repadapt → ArtifactRow -->
+        <path class="edge dash" id="e-repadapt-row" d="M920,575 L920,595" />
+        <text class="elbl" data-e="e-repadapt-row" x="926" y="588">decode</text>
+
+        <!-- ArtifactRow → domain -->
+        <path class="edge dash" id="e-row-domain" d="M1020,620 L1040,620" />
+
+        <!-- composition root → adapters (provides) -->
+        <path class="edge" id="e-compose-cfg" d="M690,800 L690,575" />
+        <path class="edge" id="e-compose-rep" d="M920,800 L920,575" />
+        <path class="edge" id="e-compose-sto" d="M1150,800 L1150,575" />
+
+        <text class="elbl" data-e="e-compose-cfg" x="555" y="780">provides</text>
+        <text class="elbl" data-e="e-compose-rep" x="926" y="780">provides</text>
+        <text class="elbl" data-e="e-compose-sto" x="1156" y="780">provides</text>
+
+        <!-- composition root → router (provides service to routes) -->
+        <path class="edge dash" id="e-compose-router" d="M900,800 C 900,500 900,280 900,280" />
+        <text class="elbl" data-e="e-compose-router" x="906" y="660">service ◦ routes</text>
+
+        <!-- composition root → bindings (Layer.provide env) -->
+        <path class="edge dash" id="e-compose-bindings" d="M580,820 C 530,820 530,430 525,430" />
+        <text class="elbl" data-e="e-compose-bindings" x="406" y="780">Layer.provide(env)</text>
+
+        <!-- composition root → D1 / R2 (boot) -->
+        <path class="edge" id="e-compose-d1" d="M1260,830 C 1280,830 1310,290 1320,280" />
+        <path class="edge" id="e-compose-r2" d="M1260,860 C 1290,860 1300,430 1320,430" />
+
+        <text class="elbl" data-e="e-compose-d1" x="1280" y="550">provides DB</text>
+        <text class="elbl" data-e="e-compose-r2" x="1280" y="640">provides SOURCES</text>
+
+        <!-- publishing → errors -->
+        <path class="edge dash" id="e-pub-err" d="M900,400 C 1200,400 1300,560 1320,560" />
+        <text class="elbl" data-e="e-pub-err" x="1200" y="500">fail with</text>
+      </svg>
+
+      <div class="src">
+        src/cloudflare/App.ts · src/worker.ts · src/publishing/ArtifactPublishing.ts · alchemy.run.ts
+      </div>
+
+      <div class="card" id="flowcap">
+        <div class="fname" id="f-name"></div>
+        <ol id="f-steps"></ol>
+      </div>
+
+      <div class="card" id="detail">
+        <h3 id="d-title">Click anything</h3>
+        <div class="meta" id="d-meta">node detail</div>
+        <p id="d-body">
+          Every box is clickable. The chips up top light up the request paths — Publish, Feed, Artifact page, Raw
+          source, Boot. Each highlight shows the nodes and edges a single request touches.
+        </p>
+      </div>
+    </div>
+    <script>
+      const DETAIL = {
+        alchemy: {
+          t: "Alchemy",
+          m: "infra as code · one Stack",
+          b: "<code>alchemy.run.ts</code> declares the whole deployment as a single Effect <code>Stack</code>. The <code>Cloudflare.providers()</code> registry plus an <code>Effect.gen</code> body creates D1, R2, the Worker, and the env bindings, then returns the public URL.",
+        },
+        d1prov: {
+          t: "D1 database",
+          m: "alchemical resource",
+          b: "<code>Cloudflare.D1Database('database', { name, migrationsDir })</code>. Migrations are append-only <code>.sql</code> files in <code>migrations/d1/</code> — schema management is a startup lifecycle concern, not hidden in the repository.",
+        },
+        r2prov: {
+          t: "R2 bucket",
+          m: "alchemical resource",
+          b: "<code>Cloudflare.R2Bucket('sources', { name })</code>. One bucket per stage. Keys are <code>artifacts/{id}/source.{ext}</code>, derived by <code>r2SourceKeyFor</code> from <code>(id, sourceType)</code>.",
+        },
+        workerprov: {
+          t: "Worker",
+          m: "alchemical resource",
+          b: "<code>Cloudflare.Worker('worker', { main, url, env, compatibility })</code>. The <code>env</code> object is the single source of truth for what <code>CloudflareBindingsService</code> receives at runtime.",
+        },
+        migrateprov: {
+          t: "migrations/0001",
+          m: "schema lifecycle",
+          b: "<code>create_artifacts.sql</code> is the only migration recorded so far. Schema management belongs at the application edge, not inside the D1 repository service.",
+        },
+        browser: {
+          t: "Browser",
+          m: "client · no credential",
+          b: "A visitor of the public artifact feed. Hits <code>GET /</code> for the HTML index and <code>GET /a/:slug</code> for an individual artifact page. The link is the credential — there are no logins, no cookies.",
+        },
+        agent: {
+          t: "Agent / curl",
+          m: "client · X-Write-Key",
+          b: "A coding agent or operator pushing artifacts. Sends <code>POST /api/artifacts</code> as multipart form with the write key in the <code>X-Write-Key</code> header. Receives <code>201</code> with the new <code>slug</code>, <code>artifactUrl</code>, and <code>sourceUrl</code>.",
+        },
+        reader: {
+          t: "Anyone with a URL",
+          m: "client · no credential",
+          b: "The same reader surface as the browser, but framed as the read-only access pattern. <code>GET /a/:slug</code> for the rendered view, <code>GET /source/:slug</code> for the raw bytes.",
+        },
+        jsonfeed: {
+          t: "JSON consumer",
+          m: "client · no credential",
+          b: "A script or dashboard pulling <code>GET /api/artifacts</code> to list the 50 most recent active artifacts. Returns <code>{ artifacts: Artifact[] }</code>.",
+        },
+        worker: {
+          t: "Worker.fetch",
+          m: "src/worker.ts",
+          b: "The entire Cloudflare export is six lines: <code>fetch(request, env) { return handlerForCloudflareEnv(env)(request) }</code>. The Worker stays a boring platform adapter — it does not know about Effect layers.",
+        },
+        handler: {
+          t: "handlerForCloudflareEnv",
+          m: "src/cloudflare/App.ts",
+          b: "Caches one <code>(request) → Promise&lt;Response&gt;</code> per <code>CloudflareBindings</code> via a <code>WeakMap</code>. The handler is built once per env, so layer composition and <code>HttpRouter.toWebHandler</code> cost nothing on subsequent requests.",
+        },
+        bindings: {
+          t: "CloudflareBindingsService",
+          m: "Context.Service",
+          b: "Converts the raw Cloudflare <code>env</code> into a typed Effect service via <code>Layer.succeed</code>. Adapters read it with <code>yield* CloudflareBindingsService</code> to get the <code>D1Database</code> and <code>R2Bucket</code> handles.",
+        },
+        writekey: {
+          t: "requireWriteKey",
+          m: "the one write gate",
+          b: "Runs only on the <code>POST /api/artifacts</code> route. Reads the <code>X-Write-Key</code> header and compares it against <code>AppConfigService.writeKey</code>. Missing key → <code>401</code>, wrong key → <code>403</code>.",
+        },
+        readable: {
+          t: "getReadableArtifact",
+          m: "the one read filter",
+          b: "Wraps the <code>findArtifactBySlug</code> lookup and rejects artifacts whose <code>state</code> is <code>withdrawn</code> with <code>410 Gone</code>. ADR 0003: withdrawn keeps the slug, source is gone.",
+        },
+        render: {
+          t: "renderArtifactPage",
+          m: "src/render/Render.ts",
+          b: "Renders Markdown via <code>markdown-it</code> with <code>html: true</code>, and HTML sources through a <code>pageShell</code> wrapper. ADR 0002: scripted HTML is served on the app origin, but the shell escapes anything user-controlled.",
+        },
+        router: {
+          t: "AppRouter",
+          m: "src/http/Http.ts",
+          b: "A const array of <code>HttpRouter.route</code> entries. Five routes — <code>GET /</code>, <code>GET /api/artifacts</code>, <code>POST /api/artifacts</code>, <code>GET /a/:slug</code>, <code>GET /source/:slug</code>. No router-level state, all logic in the handler <code>Effect</code>s.",
+        },
+        feedhandler: {
+          t: "getHome · getFeedJson",
+          m: "feed handlers",
+          b: "Read-only handlers for the public artifact feed. Both <code>yield* ArtifactRepository.listRecentArtifacts(50)</code> and stream through <code>renderFeedPage</code>. The 50-row cap is the only place a count is hard-coded.",
+        },
+        readhandler: {
+          t: "getArtifactPage · getSource",
+          m: "read handlers",
+          b: "Used by <code>GET /a/:slug</code> and <code>GET /source/:slug</code>. Resolves the slug, checks <code>state !== 'withdrawn'</code>, and returns the artifact. ADR 0003 keeps the slug alive after withdrawal so old links don't 404.",
+        },
+        publish: {
+          t: "ArtifactPublishing",
+          m: "src/publishing/ArtifactPublishing.ts",
+          b: "The only domain service. <code>detectSourceType → makeArtifactId → inferTitle → makeUniqueSlug → sha256 → writeSource → insertArtifact</code>. On insert failure it removes the just-written source (compensating) and emits structured <code>Effect.logError</code>.",
+        },
+        configsvc: {
+          t: "AppConfigService",
+          m: "contract",
+          b: "<code>publicBaseUrl</code> and <code>Redacted&lt;string&gt;</code> write key. Used by <code>requireWriteKey</code> to validate the header, and by the <code>POST</code> handler to build <code>artifactUrl</code> / <code>sourceUrl</code> in the response.",
+        },
+        reposvc: {
+          t: "ArtifactRepository",
+          m: "contract",
+          b: "Service interface with <code>insertArtifact</code>, <code>findArtifactBySlug</code>, <code>slugExists</code>, <code>listRecentArtifacts</code>. No D1 or SQL types in this file — the contract stays storage-agnostic.",
+        },
+        storagesvc: {
+          t: "ArtifactSourceStorage",
+          m: "contract",
+          b: "Service interface for blob storage: <code>writeSource / readSource / removeSource</code> keyed by <code>(ArtifactId, SourceType)</code>. The R2 implementation is the only one today; a local-filesystem one was here before the Cloudflare migration.",
+        },
+        cfgadapt: {
+          t: "CloudflareAppConfigLive",
+          m: "Layer.effect",
+          b: "Builds an <code>AppConfigService</code> from the <code>CloudflareBindings</code> by calling <code>makeAppConfig({ publicBaseUrl, writeKey })</code>. Lives in <code>src/cloudflare/Bindings.ts</code> next to the binding shape.",
+        },
+        repadapt: {
+          t: "D1ArtifactRepositoryLive",
+          m: "Layer.effect",
+          b: "Provides <code>ArtifactRepository</code> using <code>db.prepare(...).bind(...).run()</code> / <code>.first()</code> / <code>.all()</code>. Each method <code>Effect.fn</code>-wrapped and annotated for tracing. Decodes rows through the <code>ArtifactRow</code> schema at the seam.",
+        },
+        storageadapt: {
+          t: "R2ArtifactSourceStorageLive",
+          m: "Layer.effect",
+          b: "Provides <code>ArtifactSourceStorage</code> using <code>bucket.put / get / delete</code>. <code>readSource</code> returns a <code>Uint8Array</code> after <code>arrayBuffer()</code>; <code>writeSource</code> annotates logs with <code>artifactId</code>, <code>sourceType</code>, and the resolved R2 key.",
+        },
+        compose: {
+          t: "CloudflareLive",
+          m: "the one composition root",
+          b: "<code>ArtifactPublishingLive.pipe(Layer.provideMerge(Layer.mergeAll(CloudflareAppConfigLive, D1ArtifactRepositoryLive, R2ArtifactSourceStorageLive)))</code> — then <code>HttpRouter.addAll(AppRouter).pipe(HttpRouter.provideRequest(...))</code>. This is where the boot story lives, and the only place that knows all the layers at once.",
+        },
+        d1: {
+          t: "D1 — artifacts table",
+          m: "Cloudflare backing",
+          b: "SQLite-compatible metadata store. 18 columns mirroring <code>Artifact</code> plus <code>state</code>. Indexes on <code>slug</code> and <code>created_at</code> for feed and lookup. Single source of metadata truth — no copy in R2.",
+        },
+        r2: {
+          t: "R2 — sources bucket",
+          m: "Cloudflare backing",
+          b: "Object store for the immutable source bytes. Keys are <code>artifacts/{id}/source.{md|html}</code>. R2 carries no metadata, no listing metadata — the <code>artifacts</code> row in D1 is the index.",
+        },
+        artrow: {
+          t: "ArtifactRow schema",
+          m: "boundary mapping",
+          b: "Strict <code>Schema.Struct</code> for the row shape, including <code>dirty: Schema.Literals([0, 1])</code> for the SQLite boolean. <code>artifactFromRow</code> and <code>artifactToRow</code> are the only places that cross the row↔domain seam.",
+        },
+        domain: {
+          t: "Domain types",
+          m: "src/domain/Artifact.ts",
+          b: "<code>Artifact</code> is a <code>Schema.Class</code>. IDs are branded (<code>ArtifactId</code>, <code>Slug</code>). Enums are <code>Schema.Literal</code> unions — <code>SourceType</code> and <code>ArtifactState</code> stay exhaustive at the type level.",
+        },
+        errors: {
+          t: "Tagged errors",
+          m: "error channel",
+          b: "Every failure is a tagged <code>Schema.TaggedErrorClass</code> in the Effect error channel. Route handlers use <code>Effect.catchTag</code> to translate them into the right HTTP status: <code>UnsupportedSourceTypeError → 415</code>, <code>ArtifactRepositoryBackendError → 500</code>, <code>410 Gone</code> for withdrawn, <code>404</code> for missing slugs.",
+        },
+      };
+
+      const FLOWS = {
+        publish: {
+          name: "Publish — POST /api/artifacts",
+          edges: [
+            "e-pub",
+            "e-wk-handler",
+            "e-handler-bindings",
+            "e-wk-router",
+            "e-router-pub",
+            "e-writekey-cfg",
+            "e-pub-rep",
+            "e-pub-sto",
+            "e-repadapt-rep",
+            "e-storageadapt-sto",
+            "e-cfgadapt-cfg",
+            "e-repadapt-d1",
+            "e-storageadapt-r2",
+            "e-repadapt-row",
+            "e-pub-err",
+            "e-compose-cfg",
+            "e-compose-rep",
+            "e-compose-sto",
+            "e-compose-router",
+            "e-compose-bindings",
+            "e-compose-d1",
+            "e-compose-r2",
+          ],
+          nodes: [
+            "agent",
+            "worker",
+            "handler",
+            "bindings",
+            "writekey",
+            "router",
+            "publish",
+            "configsvc",
+            "reposvc",
+            "storagesvc",
+            "cfgadapt",
+            "repadapt",
+            "storageadapt",
+            "artrow",
+            "d1",
+            "r2",
+            "domain",
+            "errors",
+            "compose",
+          ],
+          steps: [
+            "<code>POST /api/artifacts</code> multipart · <code>X-Write-Key</code> header",
+            "<code>Worker.fetch</code> calls cached <code>handlerForCloudflareEnv(env)</code>",
+            "<code>AppRouter</code> dispatches to <code>publishArtifact</code>",
+            "<code>requireWriteKey</code> checks the key against <code>AppConfigService.writeKey</code>",
+            "Handler <code>yield*</code>s <code>ArtifactPublishing</code> and calls <code>publishing.publish</code>",
+            "<code>publishing</code> detects source type, hashes bytes, makes a unique slug",
+            "<code>storage.writeSource</code> → R2ArtifactSourceStorageLive → <code>R2 bucket.put</code>",
+            "<code>repository.insertArtifact</code> → D1ArtifactRepositoryLive → <code>D1 .run()</code>",
+            "On insert failure: <code>storage.removeSource</code> (compensating), then <code>logError</code>",
+            "<code>201</code> with <code>{ id, slug, artifactUrl, sourceUrl, createdAt }</code>",
+          ],
+        },
+        feed: {
+          name: "Feed — GET /",
+          edges: [
+            "e-feed",
+            "e-wk-handler",
+            "e-handler-bindings",
+            "e-wk-router",
+            "e-router-feed",
+            "e-feedhandler-rep",
+            "e-repadapt-rep",
+            "e-repadapt-d1",
+            "e-repadapt-row",
+            "e-compose-cfg",
+            "e-compose-rep",
+            "e-compose-sto",
+            "e-compose-router",
+            "e-compose-bindings",
+            "e-compose-d1",
+            "e-compose-r2",
+          ],
+          nodes: [
+            "browser",
+            "worker",
+            "handler",
+            "bindings",
+            "router",
+            "feedhandler",
+            "reposvc",
+            "repadapt",
+            "artrow",
+            "d1",
+            "domain",
+            "render",
+            "compose",
+          ],
+          steps: [
+            "<code>GET /</code> — no auth, no write key",
+            "<code>AppRouter</code> dispatches to <code>getHome</code>",
+            "<code>yield* ArtifactRepository.listRecentArtifacts(50)</code>",
+            "<code>D1ArtifactRepositoryLive</code> runs <code>select * order by created_at desc limit 50</code>",
+            "Rows decoded through <code>Schema.Array(ArtifactRow)</code> → mapped to <code>Artifact</code>",
+            "<code>renderFeedPage</code> returns HTML; <code>HttpServerResponse.html</code> sends it",
+          ],
+        },
+        page: {
+          name: "Artifact page — GET /a/:slug",
+          edges: [
+            "e-page",
+            "e-wk-handler",
+            "e-handler-bindings",
+            "e-wk-router",
+            "e-router-read",
+            "e-readable-rep",
+            "e-repadapt-rep",
+            "e-repadapt-d1",
+            "e-readhandler-sto",
+            "e-storageadapt-sto",
+            "e-storageadapt-r2",
+            "e-repadapt-row",
+            "e-compose-cfg",
+            "e-compose-rep",
+            "e-compose-sto",
+            "e-compose-router",
+            "e-compose-bindings",
+            "e-compose-d1",
+            "e-compose-r2",
+          ],
+          nodes: [
+            "reader",
+            "worker",
+            "handler",
+            "bindings",
+            "readable",
+            "router",
+            "readhandler",
+            "reposvc",
+            "repadapt",
+            "storagesvc",
+            "storageadapt",
+            "artrow",
+            "d1",
+            "r2",
+            "domain",
+            "render",
+            "compose",
+          ],
+          steps: [
+            "<code>GET /a/:slug</code> — no auth, just the link",
+            "<code>getReadableArtifact</code> rejects <code>withdrawn</code> with <code>410 Gone</code>",
+            "<code>findArtifactBySlug</code> → D1 lookup",
+            "<code>storage.readSource</code> → R2ArtifactSourceStorageLive → <code>bucket.get</code>",
+            "<code>renderArtifactPage(artifact, source)</code> runs Markdown or HTML through <code>pageShell</code>",
+            "<code>HttpServerResponse.html</code> serves the rendered view",
+          ],
+        },
+        source: {
+          name: "Raw source — GET /source/:slug",
+          edges: [
+            "e-src",
+            "e-wk-handler",
+            "e-handler-bindings",
+            "e-wk-router",
+            "e-router-read",
+            "e-readable-rep",
+            "e-repadapt-rep",
+            "e-repadapt-d1",
+            "e-readhandler-sto",
+            "e-storageadapt-sto",
+            "e-storageadapt-r2",
+            "e-repadapt-row",
+            "e-compose-cfg",
+            "e-compose-rep",
+            "e-compose-sto",
+            "e-compose-router",
+            "e-compose-bindings",
+            "e-compose-d1",
+            "e-compose-r2",
+          ],
+          nodes: [
+            "jsonfeed",
+            "reader",
+            "worker",
+            "handler",
+            "bindings",
+            "readable",
+            "router",
+            "readhandler",
+            "reposvc",
+            "repadapt",
+            "storagesvc",
+            "storageadapt",
+            "artrow",
+            "d1",
+            "r2",
+            "domain",
+            "compose",
+          ],
+          steps: [
+            "<code>GET /source/:slug</code> — no auth",
+            "<code>getReadableArtifact</code> checks <code>state</code>, rejects <code>withdrawn</code>",
+            "<code>findArtifactBySlug</code> → D1 lookup",
+            "<code>storage.readSource</code> → R2 <code>bucket.get</code> → <code>arrayBuffer()</code> → <code>Uint8Array</code>",
+            "<code>HttpServerResponse.uint8Array</code> with <code>text/markdown</code> or <code>text/html</code>",
+          ],
+        },
+        boot: {
+          name: "Boot — provision + first request",
+          edges: [
+            "e-alch-d1",
+            "e-alch-r2",
+            "e-alch-w",
+            "e-alch-m",
+            "e-w-env",
+            "e-handler-bindings",
+            "e-compose-cfg",
+            "e-compose-rep",
+            "e-compose-sto",
+            "e-compose-router",
+            "e-compose-bindings",
+            "e-compose-d1",
+            "e-compose-r2",
+          ],
+          nodes: [
+            "alchemy",
+            "d1prov",
+            "r2prov",
+            "workerprov",
+            "migrateprov",
+            "worker",
+            "handler",
+            "bindings",
+            "compose",
+            "cfgadapt",
+            "repadapt",
+            "storageadapt",
+            "d1",
+            "r2",
+          ],
+          steps: [
+            "<code>Alchemy.Stack('agent-artifacts', providers, localState)</code> resolves the stage",
+            "<code>Cloudflare.D1Database</code> + <code>R2Bucket</code> + <code>Worker</code> are provisioned",
+            "D1 runs <code>migrations/0001_create_artifacts.sql</code>",
+            "Worker <code>env</code> is populated with the bound D1, R2, <code>PUBLIC_BASE_URL</code>, and <code>WRITE_KEY</code>",
+            "On first <code>fetch</code>: <code>handlerForCloudflareEnv(env)</code> composes layers and caches the handler in a <code>WeakMap</code>",
+            "Subsequent requests reuse the cached handler — zero layer construction cost on the hot path",
+          ],
+        },
+      };
+
+      const stage = document.getElementById("stage");
+      const nodes = document.querySelectorAll(".node");
+      const edges = document.querySelectorAll(".edge");
+      const elbls = document.querySelectorAll(".elbl");
+      const chips = document.querySelectorAll(".chip");
+      const fcap = document.getElementById("flowcap");
+
+      function setFlow(key) {
+        chips.forEach((c) => c.classList.toggle("on", c.dataset.flow === key));
+        edges.forEach((e) => e.classList.remove("lit"));
+        elbls.forEach((l) => l.classList.remove("lit"));
+        nodes.forEach((n) => n.classList.remove("lit"));
+        if (key === "all") {
+          stage.classList.remove("flowing");
+          fcap.classList.remove("show");
+          return;
+        }
+        const f = FLOWS[key];
+        stage.classList.add("flowing");
+        f.edges.forEach((id) => document.getElementById(id)?.classList.add("lit"));
+        elbls.forEach((l) => {
+          if (f.edges.includes(l.dataset.e)) l.classList.add("lit");
+        });
+        f.nodes.forEach((k) => document.querySelector(`.node[data-k="${k}"]`)?.classList.add("lit"));
+        document.getElementById("f-name").textContent = f.name;
+        document.getElementById("f-steps").innerHTML = f.steps.map((s) => `<li>${s}</li>`).join("");
+        fcap.classList.add("show");
+      }
+      chips.forEach((c) => c.addEventListener("click", () => setFlow(c.dataset.flow)));
+
+      nodes.forEach((n) =>
+        n.addEventListener("click", () => {
+          nodes.forEach((x) => x.classList.remove("sel"));
+          n.classList.add("sel");
+          const d = DETAIL[n.dataset.k];
+          if (!d) return;
+          document.getElementById("d-title").textContent = d.t;
+          document.getElementById("d-meta").textContent = d.m;
+          document.getElementById("d-body").innerHTML = d.b;
+        }),
+      );
+
+      document.getElementById("themeToggle").addEventListener("click", () => {
+        const dark = !document.documentElement.classList.contains("dark");
+        document.documentElement.classList.toggle("dark", dark);
+        localStorage.setItem("theme", dark ? "dark" : "light");
+      });
+    </script>
+  </body>
+</html>

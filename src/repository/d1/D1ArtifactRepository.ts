@@ -12,7 +12,7 @@ import {
   artifactToRow,
   type ArtifactRow as ArtifactRowType,
 } from "../ArtifactRepository.js";
-import { CloudflareBindingsService } from "../../runtime/cloudflare/CloudflareBindings.js";
+import { CloudflareBindingsService } from "../../cloudflare/Bindings.js";
 
 const decodeRows = (rows: ReadonlyArray<unknown>) =>
   Schema.decodeUnknownEffect(Schema.Array(ArtifactRow))(rows).pipe(

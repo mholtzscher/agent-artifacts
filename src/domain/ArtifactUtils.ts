@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 
 import { ArtifactId, Slug, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js";
@@ -17,7 +17,13 @@ const filenameWithoutExtension = (filename: string): string => {
 
 export const makeArtifactId = (): ArtifactId => ArtifactId.make(crypto.randomUUID());
 
-export const sha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+const hex = (bytes: Uint8Array): string => Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+export const sha256Hex = (bytes: Uint8Array) =>
+  Effect.promise(() => {
+    const copy = new Uint8Array(bytes);
+    return crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer);
+  }).pipe(Effect.map((digest) => hex(new Uint8Array(digest))));
 
 export const inferTitle = (filename: string, provided?: string): string => {
   const trimmed = provided?.trim();

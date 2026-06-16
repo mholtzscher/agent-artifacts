@@ -1,6 +1,7 @@
 import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { AppConfigService, makeAppConfig } from "../../config/Config.js";
+import { AppConfigService, makeAppConfig } from "../config/Config.js";
 
 export interface CloudflareBindings {
   readonly DB: D1Database;
@@ -15,11 +16,13 @@ export class CloudflareBindingsService extends Context.Service<CloudflareBinding
 
 export const CloudflareBindingsLive = (env: CloudflareBindings) => Layer.succeed(CloudflareBindingsService, env);
 
-export const CloudflareAppConfigLive = (env: CloudflareBindings) =>
-  Layer.succeed(
-    AppConfigService,
-    makeAppConfig({
+export const CloudflareAppConfigLive = Layer.effect(
+  AppConfigService,
+  Effect.gen(function* () {
+    const env = yield* CloudflareBindingsService;
+    return makeAppConfig({
       publicBaseUrl: env.PUBLIC_BASE_URL,
       writeKey: env.AGENT_ARTIFACTS_WRITE_KEY,
-    }),
-  );
+    });
+  }),
+);

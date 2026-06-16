@@ -26,7 +26,6 @@ Alchemy local dev uses Cloudflare-style bindings backed by local D1/R2 where sup
 ```sh
 bun install
 AGENT_ARTIFACTS_WRITE_KEY=ap_test \
-ALCHEMY_PASSWORD=local-dev-password \
 bun run dev:cloudflare
 ```
 
@@ -43,19 +42,18 @@ curl -X POST http://localhost:1337/api/artifacts \
 
 ## Cloudflare deployment with Alchemy
 
-Alchemy is the canonical deployment path for Cloudflare. The stack in `alchemy.run.ts` creates separate staging/production resources:
+Alchemy v2 is the canonical deployment path for Cloudflare. The stack in `alchemy.run.ts` creates separate staging/production resources:
 
 - Worker: `agent-artifacts-<stage>-worker`
 - D1 database: `agent-artifacts-<stage>-d1`
 - R2 bucket: `agent-artifacts-<stage>-sources`
 
-D1 schema is defined in `migrations/d1/0001_create_artifacts.sql` and applied by Alchemy via `alchemy.run.ts`. Cloudflare environments start empty; no SQLite/filesystem data migration is included.
+D1 schema is defined in `migrations/d1/0001_create_artifacts.sql` and applied by Alchemy via `alchemy.run.ts`. Cloudflare environments start empty; no SQLite/filesystem data migration is included. Alchemy v1 state is not compatible with v2, so destroy any v1 stack before the first v2 deploy or use `alchemy deploy --adopt` intentionally.
 
 Required environment variables:
 
 ```sh
 AGENT_ARTIFACTS_WRITE_KEY=ap_some_secret
-ALCHEMY_PASSWORD=use_a_stable_secret_encryption_password
 ```
 
 Optional:
@@ -68,7 +66,6 @@ Deploy staging:
 
 ```sh
 AGENT_ARTIFACTS_WRITE_KEY=ap_staging \
-ALCHEMY_PASSWORD=... \
 bun run deploy:staging
 ```
 
@@ -76,7 +73,6 @@ Deploy production:
 
 ```sh
 AGENT_ARTIFACTS_WRITE_KEY=ap_prod \
-ALCHEMY_PASSWORD=... \
 PUBLIC_BASE_URL=https://your-production-worker-url.workers.dev \
 bun run deploy:production
 ```

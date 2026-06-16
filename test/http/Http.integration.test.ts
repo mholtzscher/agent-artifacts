@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import Worker, { type WorkerEnv } from "../../src/runtime/cloudflare/Worker.js";
+import type { CloudflareBindings } from "../../src/cloudflare/Bindings.js";
+import Worker from "../../src/worker.js";
 
 const writeKey = "ap_integration";
 const baseUrl = "http://agent-artifacts.test";
@@ -77,17 +78,17 @@ const makeR2 = () => {
   } as unknown as R2Bucket;
 };
 
-const makeEnv = (): WorkerEnv => ({
+const makeEnv = (): CloudflareBindings => ({
   DB: makeD1(),
   SOURCES: makeR2(),
   PUBLIC_BASE_URL: baseUrl,
   AGENT_ARTIFACTS_WRITE_KEY: writeKey,
 });
 
-const request = (env: WorkerEnv, path: string, init?: RequestInit) =>
+const request = (env: CloudflareBindings, path: string, init?: RequestInit) =>
   Worker.fetch(new Request(`${baseUrl}${path}`, init), env);
 
-const publish = async (env: WorkerEnv, filename: string, source: string, title: string) => {
+const publish = async (env: CloudflareBindings, filename: string, source: string, title: string) => {
   const form = new FormData();
   form.append("file", new Blob([source]), filename);
   form.append("title", title);
