@@ -43,6 +43,21 @@ export default Alchemy.Stack<
       url: !isProduction,
       ...(isProduction ? { domain: productionDomain } : {}),
       compatibility: { flags: ["nodejs_compat"] },
+      observability: {
+        enabled: true,
+        headSamplingRate: 1,
+        logs: {
+          enabled: true,
+          invocationLogs: true,
+          headSamplingRate: 1,
+          persist: true,
+        },
+        traces: {
+          enabled: true,
+          headSamplingRate: 1,
+          persist: true,
+        },
+      },
       env: {
         DB: database,
         SOURCES: sources,
