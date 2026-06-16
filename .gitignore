@@ -6,3 +6,4 @@ dist/
 /data
 /.tsbuildinfo
 /build
+/.alchemy

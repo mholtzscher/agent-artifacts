@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "effect/unstable/http";
 
 import { AppConfigService } from "../config/Config.js";
@@ -40,23 +40,42 @@ const requireWriteKey = Effect.gen(function* () {
 const sourceContentType = (artifact: Artifact) =>
   artifact.sourceType === "markdown" ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8";
 
-const publishFormSchema = Schema.Struct({
-  file: Multipart.FilesSchema,
-  title: Schema.optional(Schema.String),
-  description: Schema.optional(Schema.String),
-  project: Schema.optional(Schema.String),
-  repo: Schema.optional(Schema.String),
-  branch: Schema.optional(Schema.String),
-  commit_sha: Schema.optional(Schema.String),
-  dirty: Schema.optional(Schema.String),
-  agent: Schema.optional(Schema.String),
-  generator: Schema.optional(Schema.String),
+const appendField = (
+  fields: Record<string, string | ReadonlyArray<string> | undefined>,
+  key: string,
+  value: string,
+) => {
+  const existing = fields[key];
+  if (existing === undefined) {
+    fields[key] = value;
+  } else if (Array.isArray(existing)) {
+    fields[key] = [...existing, value];
+  } else {
+    fields[key] = [existing as string, value];
+  }
+};
+
+const readPublishMultipartForm = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  const parts = yield* request.multipartStream.pipe(Stream.runCollect);
+  const fields: Record<string, string | ReadonlyArray<string> | undefined> = {};
+  let file: Multipart.File | undefined;
+
+  for (const part of parts) {
+    if (Multipart.isFile(part) && part.key === "file" && file === undefined) {
+      file = part;
+    } else if (Multipart.isField(part)) {
+      appendField(fields, part.key, part.value);
+    }
+  }
+
+  return { file, fields };
 });
 
 const publishArtifact = Effect.gen(function* () {
   yield* requireWriteKey;
-  const form = yield* HttpServerRequest.schemaBodyForm(publishFormSchema);
-  const file = form.file[0];
+  const form = yield* readPublishMultipartForm;
+  const file = form.file;
   if (file === undefined) {
     yield* Effect.logWarning("publish rejected: missing file");
     return HttpServerResponse.text("Missing file", { status: 400 });
@@ -67,21 +86,20 @@ const publishArtifact = Effect.gen(function* () {
     const publishing = yield* ArtifactPublishing;
     yield* Effect.logInfo("publish request accepted");
 
-    const fs = yield* FileSystem.FileSystem;
-    const sourceBytes = yield* fs.readFile(file.path);
+    const sourceBytes = yield* file.contentEffect;
     const artifact = yield* publishing.publish({
       sourceBytes,
       sourceFilename: file.name,
       contentType: file.contentType,
-      title: form.title,
-      description: nullableField(form.description),
-      project: nullableField(form.project),
-      repoFullName: nullableField(form.repo),
-      branch: nullableField(form.branch),
-      commitSha: nullableField(form.commit_sha),
-      dirty: booleanField(form.dirty),
-      agent: nullableField(form.agent),
-      generator: nullableField(form.generator),
+      title: Array.isArray(form.fields.title) ? form.fields.title[0] : form.fields.title,
+      description: nullableField(form.fields.description),
+      project: nullableField(form.fields.project),
+      repoFullName: nullableField(form.fields.repo),
+      branch: nullableField(form.fields.branch),
+      commitSha: nullableField(form.fields.commit_sha),
+      dirty: booleanField(form.fields.dirty),
+      agent: nullableField(form.fields.agent),
+      generator: nullableField(form.fields.generator),
     });
 
     yield* Effect.logInfo("publish completed").pipe(
@@ -188,7 +206,7 @@ const getArtifactPage = Effect.gen(function* () {
       Effect.tapError(() => Effect.logError("artifact page source read failed")),
       Effect.annotateLogs({ artifactId: artifact.id, sourceType: artifact.sourceType }),
     );
-    return HttpServerResponse.html(renderArtifactPage(artifact, Buffer.from(source).toString("utf8")));
+    return HttpServerResponse.html(renderArtifactPage(artifact, new TextDecoder().decode(source)));
   }).pipe(Effect.annotateLogs("slug", slug));
 });
 
@@ -204,10 +222,10 @@ const getHome = Effect.gen(function* () {
   return HttpServerResponse.html(renderFeedPage(artifacts));
 });
 
-export const AppRouter = HttpRouter.addAll([
+export const AppRouter = [
   HttpRouter.route("GET", "/", getHome),
   HttpRouter.route("GET", "/api/artifacts", getFeedJson),
   HttpRouter.route("POST", "/api/artifacts", publishArtifact),
   HttpRouter.route("GET", "/a/:slug", getArtifactPage),
   HttpRouter.route("GET", "/source/:slug", getSource),
-]);
+] as const;

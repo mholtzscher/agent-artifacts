@@ -2,13 +2,12 @@ import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type { PlatformError } from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
 import { Artifact, type Slug, type UnsupportedSourceTypeError } from "../domain/Artifact.js";
 import { detectSourceType, inferTitle, makeArtifactId, makeSlugCandidate, sha256Hex } from "../domain/ArtifactUtils.js";
 import { ArtifactRepository, type ArtifactRepositoryError } from "../repository/ArtifactRepository.js";
-import { ArtifactSourceStorage } from "../source-storage/ArtifactSourceStorage.js";
+import { ArtifactSourceStorage, type ArtifactSourceStorageError } from "../source-storage/ArtifactSourceStorage.js";
 
 export interface PublishArtifactInput {
   readonly sourceBytes: Uint8Array;
@@ -34,7 +33,7 @@ export type ArtifactPublishingError =
   | UnsupportedSourceTypeError
   | SlugGenerationFailedError
   | ArtifactRepositoryError
-  | PlatformError;
+  | ArtifactSourceStorageError;
 
 const makeUniqueSlug = (title: string, slugExists: (slug: Slug) => Effect.Effect<boolean, ArtifactRepositoryError>) =>
   Effect.gen(function* () {

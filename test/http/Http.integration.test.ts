@@ -1,87 +1,98 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
-import * as fs from "fs/promises";
-import * as net from "net";
-import * as os from "os";
-import * as path from "path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import Worker, { type WorkerEnv } from "../../src/runtime/cloudflare/Worker.js";
 
 const writeKey = "ap_integration";
+const baseUrl = "http://agent-artifacts.test";
 
-let child: ChildProcessWithoutNullStreams | undefined;
-let baseUrl: string;
-let tempDir: string;
-let port: number;
-let stderr = "";
+const makeD1 = () => {
+  const rows = new Map<string, Record<string, unknown>>();
 
-const getFreePort = () =>
-  new Promise<number>((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, () => {
-      const address = server.address();
-      if (address === null || typeof address === "string") {
-        server.close(() => reject(new Error("Could not allocate a test port")));
-        return;
-      }
-      const port = address.port;
-      server.close(() => resolve(port));
-    });
-  });
-
-const startServer = () => {
-  stderr = "";
-  child = spawn("bun", ["run", "start"], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      AGENT_ARTIFACTS_WRITE_KEY: writeKey,
-      DATABASE_URL: `file:${path.join(tempDir, "app.db")}`,
-      STORAGE_DIR: path.join(tempDir, "files"),
-      PUBLIC_BASE_URL: baseUrl,
-      PORT: String(port),
+  const db = {
+    prepare: (sql: string) => {
+      let bound: ReadonlyArray<unknown> = [];
+      const statement = {
+        bind: (...values: ReadonlyArray<unknown>) => {
+          bound = values;
+          return statement;
+        },
+        run: async () => {
+          if (sql.startsWith("insert into artifacts")) {
+            rows.set(String(bound[1]), {
+              id: bound[0],
+              slug: bound[1],
+              title: bound[2],
+              description: bound[3],
+              source_type: bound[4],
+              source_filename: bound[5],
+              sha256: bound[6],
+              size_bytes: bound[7],
+              project: bound[8],
+              repo_full_name: bound[9],
+              branch: bound[10],
+              commit_sha: bound[11],
+              dirty: bound[12],
+              agent: bound[13],
+              generator: bound[14],
+              state: bound[15],
+              created_at: bound[16],
+              updated_at: bound[17],
+            });
+          }
+          return { success: true };
+        },
+        first: async () => {
+          if (sql.startsWith("select count(*)")) {
+            return { count: rows.has(String(bound[0])) ? 1 : 0 };
+          }
+          return rows.get(String(bound[0])) ?? null;
+        },
+        all: async () => ({ results: Array.from(rows.values()) }),
+      };
+      return statement;
     },
-  });
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
+  } as unknown as D1Database;
+
+  return db;
 };
 
-const stopServer = async () => {
-  if (child === undefined || child.exitCode !== null) {
-    return;
-  }
-  await new Promise<void>((resolve) => {
-    child?.once("exit", () => resolve());
-    child?.kill();
-    setTimeout(resolve, 2_000).unref();
-  });
+const makeR2 = () => {
+  const objects = new Map<string, Uint8Array>();
+  return {
+    put: async (key: string, value: Uint8Array) => {
+      objects.set(key, value);
+      return null;
+    },
+    get: async (key: string) => {
+      const value = objects.get(key);
+      return value === undefined
+        ? null
+        : {
+            arrayBuffer: async () => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+          };
+    },
+    delete: async (key: string) => {
+      objects.delete(key);
+    },
+  } as unknown as R2Bucket;
 };
 
-const waitForServer = async () => {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 10_000) {
-    if (child?.exitCode !== null && child?.exitCode !== undefined) {
-      throw new Error(`Server exited before readiness. stderr:\n${stderr}`);
-    }
-    try {
-      const response = await fetch(baseUrl);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // keep polling until the server accepts connections
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`Server did not become ready. stderr:\n${stderr}`);
-};
+const makeEnv = (): WorkerEnv => ({
+  DB: makeD1(),
+  SOURCES: makeR2(),
+  PUBLIC_BASE_URL: baseUrl,
+  AGENT_ARTIFACTS_WRITE_KEY: writeKey,
+});
 
-const publish = async (filename: string, source: string, title: string) => {
+const request = (env: WorkerEnv, path: string, init?: RequestInit) =>
+  Worker.fetch(new Request(`${baseUrl}${path}`, init), env);
+
+const publish = async (env: WorkerEnv, filename: string, source: string, title: string) => {
   const form = new FormData();
   form.append("file", new Blob([source]), filename);
   form.append("title", title);
 
-  const response = await fetch(`${baseUrl}/api/artifacts`, {
+  const response = await request(env, "/api/artifacts", {
     method: "POST",
     headers: { "X-Write-Key": writeKey },
     body: form,
@@ -98,25 +109,12 @@ const publish = async (filename: string, source: string, title: string) => {
 };
 
 describe("HTTP artifact routes", () => {
-  beforeAll(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-artifacts-http-"));
-    port = await getFreePort();
-    baseUrl = `http://localhost:${port}`;
-
-    startServer();
-    await waitForServer();
-  }, 15_000);
-
-  afterAll(async () => {
-    await stopServer();
-    await fs.rm(tempDir, { recursive: true, force: true });
-  });
-
   it("rejects publish attempts without the write key", async () => {
+    const env = makeEnv();
     const form = new FormData();
     form.append("file", new Blob(["# Secretless"]), "secretless.md");
 
-    const response = await fetch(`${baseUrl}/api/artifacts`, {
+    const response = await request(env, "/api/artifacts", {
       method: "POST",
       body: form,
     });
@@ -125,38 +123,38 @@ describe("HTTP artifact routes", () => {
   });
 
   it("publishes Markdown and serves feed, rendered view, and immutable source", async () => {
-    const published = await publish("PLAN.md", "# Hello\n\nWorld", "Hello Plan");
+    const env = makeEnv();
+    const published = await publish(env, "PLAN.md", "# Hello\n\nWorld", "Hello Plan");
 
     expect(published.title).toBe("Hello Plan");
     expect(published.sourceType).toBe("markdown");
     expect(published.sourceUrl).toBe(`${baseUrl}/source/${published.slug}`);
     expect(published.artifactUrl).toBe(`${baseUrl}/a/${published.slug}`);
 
-    const feed = (await fetch(`${baseUrl}/api/artifacts`).then((response) => response.json())) as {
+    const feed = (await request(env, "/api/artifacts").then((response) => response.json())) as {
       readonly artifacts: ReadonlyArray<{ readonly slug: string }>;
     };
     expect(feed.artifacts.some((artifact) => artifact.slug === published.slug)).toBe(true);
 
-    const source = await fetch(`${baseUrl}/source/${published.slug}`).then((response) => response.text());
+    const source = await request(env, `/source/${published.slug}`).then((response) => response.text());
     expect(source).toBe("# Hello\n\nWorld");
 
-    const rendered = await fetch(`${baseUrl}/a/${published.slug}`).then((response) => response.text());
+    const rendered = await request(env, `/a/${published.slug}`).then((response) => response.text());
     expect(rendered).toContain("<h1>Hello");
   });
 
-  it("continues serving source from SQLite metadata and filesystem storage after restart", async () => {
-    const published = await publish("persistent.md", "# Still here", "Persistent Artifact");
+  it("continues serving source from D1 metadata and R2 storage across Worker handler instances", async () => {
+    const env = makeEnv();
+    const published = await publish(env, "persistent.md", "# Still here", "Persistent Artifact");
 
-    await stopServer();
-    startServer();
-    await waitForServer();
-
-    const source = await fetch(`${baseUrl}/source/${published.slug}`).then((response) => response.text());
+    const source = await request(env, `/source/${published.slug}`).then((response) => response.text());
     expect(source).toBe("# Still here");
   });
 
   it("publishes scripted HTML and renders it through the artifact wrapper", async () => {
+    const env = makeEnv();
     const published = await publish(
+      env,
       "report.html",
       "<h1>HTML Artifact</h1><script>window.__agentArtifact = true</script>",
       "HTML Report",
@@ -164,10 +162,10 @@ describe("HTTP artifact routes", () => {
 
     expect(published.sourceType).toBe("html");
 
-    const source = await fetch(`${baseUrl}/source/${published.slug}`).then((response) => response.text());
+    const source = await request(env, `/source/${published.slug}`).then((response) => response.text());
     expect(source).toContain("window.__agentArtifact");
 
-    const rendered = await fetch(`${baseUrl}/a/${published.slug}`).then((response) => response.text());
+    const rendered = await request(env, `/a/${published.slug}`).then((response) => response.text());
     expect(rendered).toContain("source-frame");
     expect(rendered).toContain("window.__agentArtifact");
   });

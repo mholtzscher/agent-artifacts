@@ -3,7 +3,7 @@
   "include": ["test"],
   "references": [{ "path": "tsconfig.src.json" }],
   "compilerOptions": {
-    "types": ["node", "bun"],
+    "types": ["node", "@cloudflare/workers-types"],
     "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo",
     "rootDir": "test",
     "noEmit": true

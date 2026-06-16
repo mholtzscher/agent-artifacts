@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": ["alchemy.run.ts"],
+  "compilerOptions": {
+    "types": ["node", "@cloudflare/workers-types"],
+    "tsBuildInfoFile": ".tsbuildinfo/alchemy.tsbuildinfo",
+    "noEmit": true
+  }
+}
