@@ -19,9 +19,9 @@
     "test": "vitest",
     "coverage": "vitest --coverage",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "format:check": "oxfmt --check .",
     "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy",
+    "destroy": "alchemy destroy"
   },
   "dependencies": {
     "alchemy": "^2.0.0-beta.55",
