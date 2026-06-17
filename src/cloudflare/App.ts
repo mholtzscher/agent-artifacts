@@ -20,7 +20,7 @@ type WebHandler = (request: Request) => Promise<Response>;
 
 const handlers = new WeakMap<CloudflareBindings, WebHandler>();
 
-export const handlerForCloudflareEnv = (env: CloudflareBindings): WebHandler => {
+const handlerForCloudflareEnv = (env: CloudflareBindings): WebHandler => {
   const existing = handlers.get(env);
   if (existing !== undefined) {
     return existing;
@@ -30,3 +30,9 @@ export const handlerForCloudflareEnv = (env: CloudflareBindings): WebHandler => 
   handlers.set(env, handler);
   return handler;
 };
+
+export default {
+  fetch(request: Request, env: CloudflareBindings): Promise<Response> {
+    return handlerForCloudflareEnv(env)(request);
+  },
+} satisfies ExportedHandler<CloudflareBindings>;

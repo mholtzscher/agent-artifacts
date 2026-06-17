@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CloudflareBindings } from "../../src/cloudflare/Bindings.js";
-import Worker from "../../src/worker.js";
+import Worker from "../../src/cloudflare/App.js";
 
 const writeKey = "ap_integration";
 const baseUrl = "http://agent-artifacts.test";
