@@ -1,21 +1,15 @@
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
+import * as GitHub from "alchemy/GitHub";
+import * as Output from "alchemy/Output";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
-import type * as Layer from "effect/Layer";
+import * as Layer from "effect/Layer";
 
-type CloudflareProviders = Layer.Success<ReturnType<typeof Cloudflare.providers>>;
-
-export default Alchemy.Stack<
-  {
-    readonly stage: string;
-    readonly url: Alchemy.Output<string | undefined, never>;
-  },
-  CloudflareProviders
->(
+export default Alchemy.Stack(
   "agent-artifacts",
   {
-    providers: Cloudflare.providers(),
+    providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers()),
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
@@ -81,6 +75,27 @@ export default Alchemy.Stack<
         AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("WRITE_KEY"),
       },
     });
+
+    // Post a preview URL comment on PR deployments.
+    // The comment is created on the first deploy and auto-updates on
+    // subsequent pushes because the logical ID stays the same.
+    if (process.env.PULL_REQUEST) {
+      yield* GitHub.Comment("preview-comment", {
+        owner: process.env.GITHUB_REPOSITORY_OWNER!,
+        repository: process.env.GITHUB_REPOSITORY_NAME!,
+        issueNumber: Number(process.env.PULL_REQUEST),
+        body: Output.interpolate`
+          ## Preview Deployed
+
+          **URL:** ${worker.url}
+
+          This preview was built from commit ${process.env.GITHUB_SHA ?? "unknown"}.
+
+          ---
+          _This comment updates automatically with each push._
+        `,
+      });
+    }
 
     return { stage, url: worker.url };
   }),
