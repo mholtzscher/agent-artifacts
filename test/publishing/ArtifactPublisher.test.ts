@@ -7,10 +7,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Artifact } from "../../src/domain/Artifact.js";
 import {
-  ArtifactPublishing,
-  ArtifactPublishingLive,
+  ArtifactPublisher,
+  ArtifactPublisherLive,
   type PublishArtifactInput,
-} from "../../src/publishing/ArtifactPublishing.js";
+} from "../../src/publishing/ArtifactPublisher.js";
 import { ArtifactRepository } from "../../src/repository/ArtifactRepository.js";
 import { ArtifactSourceStorage } from "../../src/source-storage/ArtifactSourceStorage.js";
 
@@ -29,7 +29,7 @@ const input: PublishArtifactInput = {
   generator: null,
 };
 
-describe("ArtifactPublishing", () => {
+describe("ArtifactPublisher", () => {
   it("publishes a complete Artifact through repository and Source storage seams", async () => {
     const inserted: Array<Artifact> = [];
     const written: Array<{ readonly id: Artifact["id"]; readonly bytes: Uint8Array }> = [];
@@ -51,12 +51,12 @@ describe("ArtifactPublishing", () => {
         removeSource: () => Effect.void,
       }),
     );
-    const TestLive = ArtifactPublishingLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
+    const TestLive = ArtifactPublisherLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
 
     const artifact = await Effect.runPromise(
       Effect.gen(function* () {
-        const publishing = yield* ArtifactPublishing;
-        return yield* publishing.publish(input);
+        const publisher = yield* ArtifactPublisher;
+        return yield* publisher.publish(input);
       }).pipe(Effect.provide(TestLive)),
     );
 
@@ -99,13 +99,13 @@ describe("ArtifactPublishing", () => {
           }),
       }),
     );
-    const TestLive = ArtifactPublishingLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
+    const TestLive = ArtifactPublisherLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
 
     await expect(
       Effect.runPromise(
         Effect.gen(function* () {
-          const publishing = yield* ArtifactPublishing;
-          return yield* publishing.publish(input);
+          const publisher = yield* ArtifactPublisher;
+          return yield* publisher.publish(input);
         }).pipe(Effect.provide(TestLive)),
       ),
     ).rejects.toThrow("insert failed");
@@ -137,12 +137,12 @@ describe("ArtifactPublishing", () => {
         removeSource: () => Effect.void,
       }),
     );
-    const TestLive = ArtifactPublishingLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
+    const TestLive = ArtifactPublisherLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
 
     const artifact = await Effect.runPromise(
       Effect.gen(function* () {
-        const publishing = yield* ArtifactPublishing;
-        return yield* publishing.publish(input);
+        const publisher = yield* ArtifactPublisher;
+        return yield* publisher.publish(input);
       }).pipe(Effect.provide(TestLive), Random.withSeed(0)),
     );
 
@@ -168,13 +168,13 @@ describe("ArtifactPublishing", () => {
         removeSource: () => Effect.void,
       }),
     );
-    const TestLive = ArtifactPublishingLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
+    const TestLive = ArtifactPublisherLive.pipe(Layer.provide(RepositoryTest), Layer.provide(StorageTest));
 
     await expect(
       Effect.runPromise(
         Effect.gen(function* () {
-          const publishing = yield* ArtifactPublishing;
-          return yield* publishing.publish(input);
+          const publisher = yield* ArtifactPublisher;
+          return yield* publisher.publish(input);
         }).pipe(Effect.provide(TestLive), Random.withSeed(0)),
       ),
     ).rejects.toMatchObject({ _tag: "SlugGenerationFailedError" });

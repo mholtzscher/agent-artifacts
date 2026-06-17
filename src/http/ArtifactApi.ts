@@ -13,9 +13,9 @@ import {
   SourceType,
   UnsupportedSourceTypeError,
 } from "../domain/Artifact.js";
-import { SlugGenerationFailedError } from "../publishing/ArtifactPublishing.js";
+import { SlugGenerationFailedError } from "../publishing/ArtifactPublisher.js";
 import { ArtifactRepository } from "../repository/ArtifactRepository.js";
-import { ArtifactPublication } from "../publishing/ArtifactPublication.js";
+import { ArtifactPublishIntake } from "../publishing/ArtifactPublishIntake.js";
 import { BadRequestError, ForbiddenError, ServerError, UnauthorizedError } from "./ApiErrors.js";
 
 export const ArtifactSummary = Schema.Struct({
@@ -101,8 +101,8 @@ export const ArtifactApiLive = HttpApiBuilder.group(ArtifactApi, "artifacts", (h
     )
     .handleRaw("publishArtifact", () =>
       Effect.gen(function* () {
-        const publication = yield* ArtifactPublication;
-        return yield* publication.publish;
+        const intake = yield* ArtifactPublishIntake;
+        return yield* intake.publish;
       }),
     ),
 );

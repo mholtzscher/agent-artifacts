@@ -8,6 +8,7 @@ import { type ArtifactId, type SourceType } from "../domain/Artifact.js";
 export class ArtifactSourceStorageBackendError extends Schema.TaggedErrorClass<ArtifactSourceStorageBackendError>()(
   "ArtifactSourceStorageBackendError",
   { cause: Schema.Unknown },
+  { httpApiStatus: 500 },
 ) {}
 
 export type ArtifactSourceStorageError = PlatformError | ArtifactSourceStorageBackendError;

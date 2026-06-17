@@ -7,13 +7,13 @@ import { describe, expect, it } from "vitest";
 import { Artifact, type ArtifactId, type Slug, UnsupportedSourceTypeError } from "../../src/domain/Artifact.js";
 import { AppConfigService, makeAppConfig } from "../../src/config/Config.js";
 import {
-  ArtifactPublishing,
-  type ArtifactPublishingError,
+  ArtifactPublisher,
+  type ArtifactPublisherError,
   type PublishArtifactInput,
   SlugGenerationFailedError,
-} from "../../src/publishing/ArtifactPublishing.js";
+} from "../../src/publishing/ArtifactPublisher.js";
 import { ArtifactRepositoryBackendError } from "../../src/repository/ArtifactRepository.js";
-import { ArtifactPublication, ArtifactPublicationLive } from "../../src/publishing/ArtifactPublication.js";
+import { ArtifactPublishIntake, ArtifactPublishIntakeLive } from "../../src/publishing/ArtifactPublishIntake.js";
 
 const writeKey = "ap_test";
 const publicBaseUrl = "http://test.local";
@@ -41,22 +41,22 @@ const fixedArtifact = Artifact.make({
 
 const configTest = Layer.succeed(AppConfigService, makeAppConfig({ publicBaseUrl, writeKey }));
 
-const publishingTest = (publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublishingError>) =>
-  Layer.succeed(ArtifactPublishing, ArtifactPublishing.of({ publish }));
+const publisherTest = (publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublisherError>) =>
+  Layer.succeed(ArtifactPublisher, ArtifactPublisher.of({ publish }));
 
 const httpReqTest = (request: Request) =>
   Layer.succeed(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(request));
 
-const runPublication = (
+const runIntake = (
   request: Request,
-  publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublishingError>,
+  publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublisherError>,
 ) => {
-  const publication = ArtifactPublicationLive.pipe(Layer.provide(Layer.mergeAll(configTest, publishingTest(publish))));
+  const intake = ArtifactPublishIntakeLive.pipe(Layer.provide(Layer.mergeAll(configTest, publisherTest(publish))));
   return Effect.runPromise(
     Effect.gen(function* () {
-      const service = yield* ArtifactPublication;
+      const service = yield* ArtifactPublishIntake;
       return yield* service.publish;
-    }).pipe(Effect.provide(Layer.mergeAll(publication, httpReqTest(request)))),
+    }).pipe(Effect.provide(Layer.mergeAll(intake, httpReqTest(request)))),
   );
 };
 
@@ -79,7 +79,7 @@ const publishRequest = (init: {
   return new Request(`${publicBaseUrl}/api/v1/artifacts`, { method: "POST", headers, body: form });
 };
 
-describe("ArtifactPublication", () => {
+describe("ArtifactPublishIntake", () => {
   it("parses multipart, coerces fields, and assembles response URLs from the public base URL", async () => {
     let captured: PublishArtifactInput | undefined;
     const source = "# Hello\n\nWorld";
@@ -95,7 +95,7 @@ describe("ArtifactPublication", () => {
       writeKey,
     });
 
-    const response = await runPublication(request, (input) => {
+    const response = await runIntake(request, (input) => {
       captured = input;
       return Effect.succeed(fixedArtifact);
     });
@@ -118,21 +118,21 @@ describe("ArtifactPublication", () => {
 
   it("rejects requests without a write key as UnauthorizedError", async () => {
     const request = publishRequest({ file: new Blob(["# x"], { type: "text/markdown" }) });
-    await expect(runPublication(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
+    await expect(runIntake(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
       _tag: "UnauthorizedError",
     });
   });
 
   it("rejects an invalid write key as ForbiddenError", async () => {
     const request = publishRequest({ file: new Blob(["# x"], { type: "text/markdown" }), writeKey: "wrong" });
-    await expect(runPublication(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
+    await expect(runIntake(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
       _tag: "ForbiddenError",
     });
   });
 
   it("rejects a multipart body with no file as BadRequestError", async () => {
     const request = publishRequest({ fields: [["title", "No File"]], writeKey });
-    await expect(runPublication(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
+    await expect(runIntake(request, () => Effect.succeed(fixedArtifact))).rejects.toMatchObject({
       _tag: "BadRequestError",
     });
   });
@@ -140,14 +140,14 @@ describe("ArtifactPublication", () => {
   it("maps a repository backend error to ServerError", async () => {
     const request = publishRequest({ file: new Blob(["# x"], { type: "text/markdown" }), writeKey });
     await expect(
-      runPublication(request, () => Effect.fail(new ArtifactRepositoryBackendError({ cause: new Error("db down") }))),
+      runIntake(request, () => Effect.fail(new ArtifactRepositoryBackendError({ cause: new Error("db down") }))),
     ).rejects.toMatchObject({ _tag: "ServerError" });
   });
 
   it("maps a raw SqlError to ServerError (broadened mapping)", async () => {
     const request = publishRequest({ file: new Blob(["# x"], { type: "text/markdown" }), writeKey });
     await expect(
-      runPublication(request, () =>
+      runIntake(request, () =>
         Effect.fail(
           new SqlError({ reason: new UnknownError({ cause: new Error("insert failed"), message: "insert failed" }) }),
         ),
@@ -158,14 +158,14 @@ describe("ArtifactPublication", () => {
   it("passes UnsupportedSourceTypeError through unchanged", async () => {
     const request = publishRequest({ file: new Blob(["plain"], { type: "text/plain" }), writeKey });
     await expect(
-      runPublication(request, () => Effect.fail(new UnsupportedSourceTypeError({ filename: "notes.txt" }))),
+      runIntake(request, () => Effect.fail(new UnsupportedSourceTypeError({ filename: "notes.txt" }))),
     ).rejects.toMatchObject({ _tag: "UnsupportedSourceTypeError" });
   });
 
   it("passes SlugGenerationFailedError through unchanged", async () => {
     const request = publishRequest({ file: new Blob(["# x"], { type: "text/markdown" }), writeKey });
     await expect(
-      runPublication(request, () => Effect.fail(new SlugGenerationFailedError({ title: "X" }))),
+      runIntake(request, () => Effect.fail(new SlugGenerationFailedError({ title: "X" }))),
     ).rejects.toMatchObject({ _tag: "SlugGenerationFailedError" });
   });
 });
