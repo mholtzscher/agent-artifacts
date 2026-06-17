@@ -1,76 +1,19 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
-import { HttpRouter, HttpServerRequest, HttpServerResponse, Multipart } from "effect/unstable/http";
+import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
 
 import { AppConfigService } from "../config/Config.js";
 import { type Artifact, PublishResponse, Slug } from "../domain/Artifact.js";
+import { requireWriteKey } from "./Auth.js";
 import { ArtifactPublishing } from "../publishing/ArtifactPublishing.js";
+import { booleanField, nullableField, readPublishMultipartForm } from "./PublishForm.js";
 import { renderArtifactPage, renderFeedPage } from "../render/Render.js";
 import { ArtifactRepository } from "../repository/ArtifactRepository.js";
 import { ArtifactSourceStorage } from "../source-storage/ArtifactSourceStorage.js";
 
-const nullableField = (value: string | ReadonlyArray<string> | undefined): string | null => {
-  const candidate = Array.isArray(value) ? value[0] : value;
-  const trimmed = candidate?.trim();
-  return trimmed === undefined || trimmed === "" ? null : trimmed;
-};
-
-const booleanField = (value: string | ReadonlyArray<string> | undefined): boolean => {
-  const candidate = Array.isArray(value) ? value[0] : value;
-  return candidate === "1" || candidate === "true" || candidate === "yes";
-};
-
-const requireWriteKey = Effect.gen(function* () {
-  const config = yield* AppConfigService;
-  const request = yield* HttpServerRequest.HttpServerRequest;
-  const provided = request.headers["x-write-key"];
-  if (provided === undefined) {
-    yield* Effect.logWarning("publish rejected: missing write key");
-    return yield* Effect.fail(HttpServerResponse.text("Missing write key", { status: 401 }));
-  }
-  if (provided !== Redacted.value(config.writeKey)) {
-    yield* Effect.logWarning("publish rejected: invalid write key");
-    return yield* Effect.fail(HttpServerResponse.text("Invalid write key", { status: 403 }));
-  }
-});
-
 const sourceContentType = (artifact: Artifact) =>
   artifact.sourceType === "markdown" ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8";
-
-const appendField = (
-  fields: Record<string, string | ReadonlyArray<string> | undefined>,
-  key: string,
-  value: string,
-) => {
-  const existing = fields[key];
-  if (existing === undefined) {
-    fields[key] = value;
-  } else if (Array.isArray(existing)) {
-    fields[key] = [...existing, value];
-  } else {
-    fields[key] = [existing as string, value];
-  }
-};
-
-const readPublishMultipartForm = Effect.gen(function* () {
-  const request = yield* HttpServerRequest.HttpServerRequest;
-  const parts = yield* request.multipartStream.pipe(Stream.runCollect);
-  const fields: Record<string, string | ReadonlyArray<string> | undefined> = {};
-  let file: Multipart.File | undefined;
-
-  for (const part of parts) {
-    if (Multipart.isFile(part) && part.key === "file" && file === undefined) {
-      file = part;
-    } else if (Multipart.isField(part)) {
-      appendField(fields, part.key, part.value);
-    }
-  }
-
-  return { file, fields };
-});
 
 const publishArtifact = Effect.gen(function* () {
   yield* requireWriteKey;

@@ -6,7 +6,7 @@ import type { SqlError } from "effect/unstable/sql";
 
 import { Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../domain/Artifact.js";
 
-export const ArtifactRow = Schema.Struct({
+export const ArtifactRowSchema = Schema.Struct({
   id: ArtifactId,
   slug: Slug,
   title: Schema.String,
@@ -27,7 +27,7 @@ export const ArtifactRow = Schema.Struct({
   updated_at: Schema.String,
 });
 
-export type ArtifactRow = Schema.Schema.Type<typeof ArtifactRow>;
+export type ArtifactRow = Schema.Schema.Type<typeof ArtifactRowSchema>;
 
 export const artifactFromRow = (row: ArtifactRow): Artifact =>
   Artifact.make({

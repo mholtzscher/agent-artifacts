@@ -8,14 +8,14 @@ import {
   artifactFromRow,
   ArtifactRepository,
   ArtifactRepositoryBackendError,
-  ArtifactRow,
+  ArtifactRowSchema,
   artifactToRow,
-  type ArtifactRow as ArtifactRowType,
+  type ArtifactRow,
 } from "../ArtifactRepository.js";
 import { CloudflareBindingsService } from "../../cloudflare/Bindings.js";
 
 const decodeRows = (rows: ReadonlyArray<unknown>) =>
-  Schema.decodeUnknownEffect(Schema.Array(ArtifactRow))(rows).pipe(
+  Schema.decodeUnknownEffect(Schema.Array(ArtifactRowSchema))(rows).pipe(
     Effect.map((decoded) => decoded.map(artifactFromRow)),
   );
 
@@ -65,12 +65,12 @@ export const D1ArtifactRepositoryLive = Layer.effect(
 
       findArtifactBySlug: Effect.fn("D1ArtifactRepository.findArtifactBySlug")(function* (slug: Slug) {
         const row = yield* Effect.tryPromise({
-          try: () => db.prepare("select * from artifacts where slug = ? limit 1").bind(slug).first<ArtifactRowType>(),
+          try: () => db.prepare("select * from artifacts where slug = ? limit 1").bind(slug).first<ArtifactRow>(),
           catch: (cause) => new ArtifactRepositoryBackendError({ cause }),
         });
         return row === null
           ? Option.none()
-          : Option.some(artifactFromRow(yield* Schema.decodeUnknownEffect(ArtifactRow)(row)));
+          : Option.some(artifactFromRow(yield* Schema.decodeUnknownEffect(ArtifactRowSchema)(row)));
       }),
 
       slugExists: Effect.fn("D1ArtifactRepository.slugExists")(function* (slug: Slug) {
