@@ -2,10 +2,11 @@ import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Random from "effect/Random";
 import * as Schema from "effect/Schema";
 
-import { Artifact, type Slug, type UnsupportedSourceTypeError } from "../domain/Artifact.js";
-import { detectSourceType, inferTitle, makeArtifactId, makeSlugCandidate, sha256Hex } from "../domain/ArtifactUtils.js";
+import { Artifact, Slug, type UnsupportedSourceTypeError } from "../domain/Artifact.js";
+import { detectSourceType, inferTitle, makeArtifactId, sha256Hex, slugBase } from "../domain/ArtifactUtils.js";
 import { ArtifactRepository, type ArtifactRepositoryError } from "../repository/ArtifactRepository.js";
 import { ArtifactSourceStorage, type ArtifactSourceStorageError } from "../source-storage/ArtifactSourceStorage.js";
 
@@ -30,16 +31,23 @@ export class SlugGenerationFailedError extends Schema.TaggedErrorClass<SlugGener
   { httpApiStatus: 409 },
 ) {}
 
-export type ArtifactPublishingError =
+export type ArtifactPublisherError =
   | UnsupportedSourceTypeError
   | SlugGenerationFailedError
   | ArtifactRepositoryError
   | ArtifactSourceStorageError;
 
+const makeSlugCandidate = (title: string): Effect.Effect<Slug> =>
+  Effect.gen(function* () {
+    const bytes = [yield* Random.nextIntBetween(0, 255), yield* Random.nextIntBetween(0, 255)];
+    const suffix = bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return Slug.make(`${slugBase(title)}-${suffix}`);
+  });
+
 const makeUniqueSlug = (title: string, slugExists: (slug: Slug) => Effect.Effect<boolean, ArtifactRepositoryError>) =>
   Effect.gen(function* () {
     for (let attempt = 0; attempt < 8; attempt++) {
-      const slug = makeSlugCandidate(title);
+      const slug = yield* makeSlugCandidate(title);
       if (!(yield* slugExists(slug))) {
         return slug;
       }
@@ -48,21 +56,21 @@ const makeUniqueSlug = (title: string, slugExists: (slug: Slug) => Effect.Effect
     return yield* Effect.fail(new SlugGenerationFailedError({ title }));
   });
 
-export class ArtifactPublishing extends Context.Service<
-  ArtifactPublishing,
+export class ArtifactPublisher extends Context.Service<
+  ArtifactPublisher,
   {
-    readonly publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublishingError>;
+    readonly publish: (input: PublishArtifactInput) => Effect.Effect<Artifact, ArtifactPublisherError>;
   }
->()("AgentArtifacts/ArtifactPublishing") {}
+>()("AgentArtifacts/ArtifactPublisher") {}
 
-export const ArtifactPublishingLive = Layer.effect(
-  ArtifactPublishing,
+export const ArtifactPublisherLive = Layer.effect(
+  ArtifactPublisher,
   Effect.gen(function* () {
     const repository = yield* ArtifactRepository;
     const storage = yield* ArtifactSourceStorage;
 
-    return ArtifactPublishing.of({
-      publish: Effect.fn("ArtifactPublishing.publish")(function* (input: PublishArtifactInput) {
+    return ArtifactPublisher.of({
+      publish: Effect.fn("ArtifactPublisher.publish")(function* (input: PublishArtifactInput) {
         const sourceType = yield* Effect.fromResult(detectSourceType(input.sourceFilename, input.contentType));
         const id = makeArtifactId();
         const title = inferTitle(input.sourceFilename, input.title);

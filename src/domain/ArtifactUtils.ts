@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 
-import { ArtifactId, Slug, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js";
+import { ArtifactId, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js";
 
 const extensionOf = (filename: string): string => {
   const basename = filename.split(/[\\/]/).at(-1) ?? filename;
@@ -54,13 +54,6 @@ export const slugBase = (title: string): string => {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return base === "" ? "artifact" : base;
-};
-
-export const makeSlugCandidate = (title: string): Slug => {
-  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(2)), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return Slug.make(`${slugBase(title)}-${suffix || "x"}`);
 };
 
 export const extensionForSourceType = (sourceType: SourceType): string => {

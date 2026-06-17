@@ -4,7 +4,6 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema";
 
-import { AppConfigService } from "../config/Config.js";
 import {
   type Artifact,
   ArtifactId,
@@ -14,10 +13,9 @@ import {
   SourceType,
   UnsupportedSourceTypeError,
 } from "../domain/Artifact.js";
-import { ArtifactPublishing, SlugGenerationFailedError } from "../publishing/ArtifactPublishing.js";
+import { SlugGenerationFailedError } from "../publishing/ArtifactPublisher.js";
 import { ArtifactRepository } from "../repository/ArtifactRepository.js";
-import { requireWriteKey } from "./Auth.js";
-import { booleanField, nullableField, readPublishMultipartForm } from "./PublishForm.js";
+import { ArtifactPublishIntake } from "../publishing/ArtifactPublishIntake.js";
 import { BadRequestError, ForbiddenError, ServerError, UnauthorizedError } from "./ApiErrors.js";
 
 export const ArtifactSummary = Schema.Struct({
@@ -103,57 +101,8 @@ export const ArtifactApiLive = HttpApiBuilder.group(ArtifactApi, "artifacts", (h
     )
     .handleRaw("publishArtifact", () =>
       Effect.gen(function* () {
-        yield* requireWriteKey;
-        const form = yield* readPublishMultipartForm;
-        const file = form.file;
-        if (file === undefined) {
-          yield* Effect.logWarning("publish rejected: missing file");
-          return yield* Effect.fail(new BadRequestError({ message: "Missing file" }));
-        }
-
-        const config = yield* AppConfigService;
-        const publishing = yield* ArtifactPublishing;
-        yield* Effect.logInfo("publish request accepted");
-
-        const sourceBytes = yield* file.contentEffect;
-        const artifact = yield* publishing.publish({
-          sourceBytes,
-          sourceFilename: file.name,
-          contentType: file.contentType,
-          title: Array.isArray(form.fields.title) ? form.fields.title[0] : form.fields.title,
-          description: nullableField(form.fields.description),
-          project: nullableField(form.fields.project),
-          repoFullName: nullableField(form.fields.repo),
-          branch: nullableField(form.fields.branch),
-          commitSha: nullableField(form.fields.commit_sha),
-          dirty: booleanField(form.fields.dirty),
-          agent: nullableField(form.fields.agent),
-          generator: nullableField(form.fields.generator),
-        });
-
-        yield* Effect.logInfo("publish completed").pipe(
-          Effect.annotateLogs({
-            artifactId: artifact.id,
-            slug: artifact.slug,
-            sourceType: artifact.sourceType,
-            sizeBytes: artifact.sizeBytes,
-          }),
-        );
-
-        return PublishResponse.make({
-          id: artifact.id,
-          slug: artifact.slug,
-          title: artifact.title,
-          sourceType: artifact.sourceType,
-          artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
-          sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
-          createdAt: artifact.createdAt,
-        });
-      }).pipe(
-        Effect.catchTags({
-          ArtifactRepositoryBackendError: () => Effect.fail(toServerError()),
-          ArtifactSourceStorageBackendError: () => Effect.fail(toServerError()),
-        }),
-      ),
+        const intake = yield* ArtifactPublishIntake;
+        return yield* intake.publish;
+      }),
     ),
 );

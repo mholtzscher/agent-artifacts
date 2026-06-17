@@ -80,6 +80,7 @@ export const ArtifactRowSchema = ArtifactRowStruct.pipe(
 export class ArtifactRepositoryBackendError extends Schema.TaggedErrorClass<ArtifactRepositoryBackendError>()(
   "ArtifactRepositoryBackendError",
   { cause: Schema.Unknown },
+  { httpApiStatus: 500 },
 ) {}
 
 export type ArtifactRepositoryError = SqlError.SqlError | Schema.SchemaError | ArtifactRepositoryBackendError;
