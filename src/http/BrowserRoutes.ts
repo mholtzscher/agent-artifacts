@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi";
@@ -11,6 +10,7 @@ import { renderArtifactPage, renderFeedPage } from "../render/Render.js";
 import { ArtifactRepository } from "../repository/ArtifactRepository.js";
 import { ArtifactSourceStorage } from "../source-storage/ArtifactSourceStorage.js";
 import { ArtifactNotFoundError, ArtifactWithdrawnError, ServerError } from "./ApiErrors.js";
+import { findActiveArtifact } from "./ArtifactLookup.js";
 
 export const SlugParams = Schema.Struct({ slug: Slug });
 export const HtmlResponse = Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/html; charset=utf-8" }));
@@ -20,26 +20,6 @@ export const SourceResponse = Schema.declare((u): u is Uint8Array => u instanceo
 
 const sourceContentType = (artifact: Artifact) =>
   artifact.sourceType === "markdown" ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8";
-
-const getArtifactOr404 = (slug: Slug) =>
-  Effect.gen(function* () {
-    const repository = yield* ArtifactRepository;
-    const artifact = yield* repository.findArtifactBySlug(slug);
-    if (Option.isNone(artifact)) {
-      return yield* Effect.fail(new ArtifactNotFoundError({ message: "Artifact not found" }));
-    }
-    return artifact.value;
-  });
-
-const getReadableArtifact = (slug: Slug) =>
-  Effect.gen(function* () {
-    const artifact = yield* getArtifactOr404(slug);
-    if (artifact.state === "withdrawn") {
-      yield* Effect.logWarning("withdrawn artifact access").pipe(Effect.annotateLogs("artifactId", artifact.id));
-      return yield* Effect.fail(new ArtifactWithdrawnError({ message: "Artifact withdrawn" }));
-    }
-    return artifact;
-  });
 
 const browserErrors = [ArtifactNotFoundError, ArtifactWithdrawnError, ServerError] as const;
 
@@ -78,7 +58,7 @@ export const BrowserRoutesLive = HttpApiBuilder.group(BrowserApi, "browser", (ha
     )
     .handle("getArtifactPage", ({ params }) =>
       Effect.gen(function* () {
-        const artifact = yield* getReadableArtifact(params.slug).pipe(Effect.mapError(toBrowserError));
+        const artifact = yield* findActiveArtifact(params.slug).pipe(Effect.mapError(toBrowserError));
         const storage = yield* ArtifactSourceStorage;
         const source = yield* storage.readSource(artifact.id, artifact.sourceType).pipe(
           Effect.tapError(() => Effect.logError("artifact page source read failed")),
@@ -90,7 +70,7 @@ export const BrowserRoutesLive = HttpApiBuilder.group(BrowserApi, "browser", (ha
     )
     .handle("getSource", ({ params }) =>
       Effect.gen(function* () {
-        const artifact = yield* getReadableArtifact(params.slug).pipe(Effect.mapError(toBrowserError));
+        const artifact = yield* findActiveArtifact(params.slug).pipe(Effect.mapError(toBrowserError));
         const storage = yield* ArtifactSourceStorage;
         const source = yield* storage.readSource(artifact.id, artifact.sourceType).pipe(
           Effect.tapError(() => Effect.logError("source response read failed")),
