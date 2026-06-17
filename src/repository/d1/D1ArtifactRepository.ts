@@ -5,19 +5,14 @@ import * as Schema from "effect/Schema";
 
 import { type Artifact, type Slug } from "../../domain/Artifact.js";
 import {
-  artifactFromRow,
   ArtifactRepository,
   ArtifactRepositoryBackendError,
   ArtifactRowSchema,
-  artifactToRow,
   type ArtifactRow,
 } from "../ArtifactRepository.js";
 import { CloudflareBindingsService } from "../../cloudflare/Bindings.js";
 
-const decodeRows = (rows: ReadonlyArray<unknown>) =>
-  Schema.decodeUnknownEffect(Schema.Array(ArtifactRowSchema))(rows).pipe(
-    Effect.map((decoded) => decoded.map(artifactFromRow)),
-  );
+const decodeRows = (rows: ReadonlyArray<unknown>) => Schema.decodeUnknownEffect(Schema.Array(ArtifactRowSchema))(rows);
 
 export const D1ArtifactRepositoryLive = Layer.effect(
   ArtifactRepository,
@@ -27,7 +22,7 @@ export const D1ArtifactRepositoryLive = Layer.effect(
 
     return ArtifactRepository.of({
       insertArtifact: Effect.fn("D1ArtifactRepository.insertArtifact")(function* (artifact: Artifact) {
-        const row = artifactToRow(artifact);
+        const row = yield* Schema.encodeEffect(ArtifactRowSchema)(artifact);
         yield* Effect.tryPromise({
           try: () =>
             db
@@ -68,9 +63,7 @@ export const D1ArtifactRepositoryLive = Layer.effect(
           try: () => db.prepare("select * from artifacts where slug = ? limit 1").bind(slug).first<ArtifactRow>(),
           catch: (cause) => new ArtifactRepositoryBackendError({ cause }),
         });
-        return row === null
-          ? Option.none()
-          : Option.some(artifactFromRow(yield* Schema.decodeUnknownEffect(ArtifactRowSchema)(row)));
+        return row === null ? Option.none() : Option.some(yield* Schema.decodeUnknownEffect(ArtifactRowSchema)(row));
       }),
 
       slugExists: Effect.fn("D1ArtifactRepository.slugExists")(function* (slug: Slug) {
