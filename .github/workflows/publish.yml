@@ -21,9 +21,8 @@ jobs:
         shell: bash
         run: bun install
       - name: Deploy to Production
-        run: bun run deploy --yes
+        run: bun run deploy --yes --stage production
         env:
-          STAGE: production
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
