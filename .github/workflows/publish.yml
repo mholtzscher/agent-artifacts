@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: bun install
       - name: Deploy to Production
-        run: bun run deploy
+        run: bun run deploy --yes
         env:
           STAGE: production
           GITHUB_SHA: ${{ github.sha }}
