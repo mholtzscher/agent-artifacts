@@ -1,6 +1,7 @@
 import MarkdownIt from "markdown-it";
 
 import { type Artifact } from "../domain/Artifact.js";
+import { artifactLinks } from "../domain/ArtifactLinks.js";
 
 const markdown = new MarkdownIt({
   html: true,
@@ -49,6 +50,7 @@ ${body}
 </html>`;
 
 export const renderArtifactPage = (artifact: Artifact, source: string): string => {
+  const paths = artifactLinks(artifact.slug);
   const rendered =
     artifact.sourceType === "markdown"
       ? `<article>${markdown.render(source)}</article>`
@@ -60,7 +62,7 @@ export const renderArtifactPage = (artifact: Artifact, source: string): string =
     <header class="artifact-banner">
       <a class="artifact-back" href="/">← Recent artifacts</a>
       <h1 class="artifact-title">${escapeHtml(artifact.title)}</h1>
-      <a class="artifact-source-link" href="/source/${escapeHtml(artifact.slug)}">Source</a>
+      <a class="artifact-source-link" href="${escapeHtml(paths.sourcePath)}">Source</a>
     </header>
     <main class="artifact-preview">
       ${rendered}
@@ -80,16 +82,14 @@ export const renderFeedPage = (artifacts: ReadonlyArray<Artifact>): string =>
       artifacts.length === 0
         ? "<p>No artifacts published yet.</p>"
         : artifacts
-            .map(
-              (artifact) =>
-                `<section class="artifact-card">
-      <h2><a href="/a/${escapeHtml(artifact.slug)}">${escapeHtml(artifact.title)}</a></h2>
+            .map((artifact) => {
+              const paths = artifactLinks(artifact.slug);
+              return `<section class="artifact-card">
+      <h2><a href="${escapeHtml(paths.artifactPath)}">${escapeHtml(artifact.title)}</a></h2>
       ${artifact.description === null ? "" : `<p>${escapeHtml(artifact.description)}</p>`}
-      <p class="metadata">${escapeHtml(artifact.sourceType)} · ${escapeHtml(artifact.createdAt)} · <a href="/source/${escapeHtml(
-        artifact.slug,
-      )}">Source</a></p>
-    </section>`,
-            )
+      <p class="metadata">${escapeHtml(artifact.sourceType)} · ${escapeHtml(artifact.createdAt)} · <a href="${escapeHtml(paths.sourcePath)}">Source</a></p>
+    </section>`;
+            })
             .join("\n")
     }
   </main>`,

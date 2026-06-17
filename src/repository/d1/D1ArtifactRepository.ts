@@ -4,12 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { type Artifact, type Slug } from "../../domain/Artifact.js";
-import {
-  ArtifactRepository,
-  ArtifactRepositoryBackendError,
-  ArtifactRowSchema,
-  type ArtifactRow,
-} from "../ArtifactRepository.js";
+import { ArtifactRepository, ArtifactRepositoryBackendError, ArtifactRowSchema } from "../ArtifactRepository.js";
 import { CloudflareBindingsService } from "../../cloudflare/Bindings.js";
 
 const decodeRows = (rows: ReadonlyArray<unknown>) => Schema.decodeUnknownEffect(Schema.Array(ArtifactRowSchema))(rows);
@@ -60,7 +55,7 @@ export const D1ArtifactRepositoryLive = Layer.effect(
 
       findArtifactBySlug: Effect.fn("D1ArtifactRepository.findArtifactBySlug")(function* (slug: Slug) {
         const row = yield* Effect.tryPromise({
-          try: () => db.prepare("select * from artifacts where slug = ? limit 1").bind(slug).first<ArtifactRow>(),
+          try: () => db.prepare("select * from artifacts where slug = ? limit 1").bind(slug).first(),
           catch: (cause) => new ArtifactRepositoryBackendError({ cause }),
         });
         return row === null ? Option.none() : Option.some(yield* Schema.decodeUnknownEffect(ArtifactRowSchema)(row));

@@ -9,6 +9,7 @@ import { HttpServerRequest, Multipart } from "effect/unstable/http";
 
 import { AppConfigService } from "../config/Config.js";
 import { PublishResponse, UnsupportedSourceTypeError } from "../domain/Artifact.js";
+import { artifactLinks } from "../domain/ArtifactLinks.js";
 import { ArtifactPublisher, type ArtifactPublisherError, SlugGenerationFailedError } from "./ArtifactPublisher.js";
 import { BadRequestError, ForbiddenError, ServerError, UnauthorizedError } from "../http/ApiErrors.js";
 
@@ -198,13 +199,14 @@ export const ArtifactPublishIntakeLive = Layer.effect(
           }),
         );
 
+        const paths = artifactLinks(artifact.slug);
         return PublishResponse.make({
           id: artifact.id,
           slug: artifact.slug,
           title: artifact.title,
           sourceType: artifact.sourceType,
-          artifactUrl: `${config.publicBaseUrl}/a/${artifact.slug}`,
-          sourceUrl: `${config.publicBaseUrl}/source/${artifact.slug}`,
+          artifactUrl: `${config.publicBaseUrl}${paths.artifactPath}`,
+          sourceUrl: `${config.publicBaseUrl}${paths.sourcePath}`,
           createdAt: artifact.createdAt,
         });
       }),

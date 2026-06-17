@@ -13,6 +13,7 @@ import {
   SourceType,
   UnsupportedSourceTypeError,
 } from "../domain/Artifact.js";
+import { artifactLinks } from "../domain/ArtifactLinks.js";
 import { SlugGenerationFailedError } from "../publishing/ArtifactPublisher.js";
 import { ArtifactRepository } from "../repository/ArtifactRepository.js";
 import { ArtifactPublishIntake } from "../publishing/ArtifactPublishIntake.js";
@@ -51,25 +52,30 @@ const publishErrors = [
   ServerError,
 ] as const;
 
-const artifactJson = (artifact: Artifact) => ({
-  id: artifact.id,
-  slug: artifact.slug,
-  title: artifact.title,
-  description: artifact.description,
-  sourceType: artifact.sourceType,
-  sourceUrl: `/source/${artifact.slug}`,
-  artifactUrl: `/a/${artifact.slug}`,
-  project: artifact.project,
-  repoFullName: artifact.repoFullName,
-  branch: artifact.branch,
-  commitSha: artifact.commitSha,
-  dirty: artifact.dirty,
-  agent: artifact.agent,
-  generator: artifact.generator,
-  state: artifact.state,
-  createdAt: artifact.createdAt,
-  updatedAt: artifact.updatedAt,
-});
+type ArtifactSummary = Schema.Schema.Type<typeof ArtifactSummary>;
+
+const artifactSummary = (artifact: Artifact): ArtifactSummary => {
+  const paths = artifactLinks(artifact.slug);
+  return {
+    id: artifact.id,
+    slug: artifact.slug,
+    title: artifact.title,
+    description: artifact.description,
+    sourceType: artifact.sourceType,
+    sourceUrl: paths.sourcePath,
+    artifactUrl: paths.artifactPath,
+    project: artifact.project,
+    repoFullName: artifact.repoFullName,
+    branch: artifact.branch,
+    commitSha: artifact.commitSha,
+    dirty: artifact.dirty,
+    agent: artifact.agent,
+    generator: artifact.generator,
+    state: artifact.state,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt,
+  };
+};
 
 export const ArtifactApiGroup = HttpApiGroup.make("artifacts")
   .add(
@@ -96,7 +102,7 @@ export const ArtifactApiLive = HttpApiBuilder.group(ArtifactApi, "artifacts", (h
       Effect.gen(function* () {
         const repository = yield* ArtifactRepository;
         const artifacts = yield* repository.listRecentArtifacts(50);
-        return { artifacts: artifacts.map(artifactJson) };
+        return { artifacts: artifacts.map(artifactSummary) };
       }).pipe(Effect.mapError(toServerError)),
     )
     .handleRaw("publishArtifact", () =>
