@@ -78,7 +78,7 @@ export default Alchemy.Stack<
         DB: database,
         SOURCES: sources,
         PUBLIC_BASE_URL: publicBaseUrl,
-        AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("AGENT_ARTIFACTS_WRITE_KEY"),
+        AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("WRITE_KEY"),
       },
     });
 
