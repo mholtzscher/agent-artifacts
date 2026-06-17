@@ -8,7 +8,7 @@ const markdown = new MarkdownIt({
   typographer: true,
 });
 
-export const escapeHtml = (value: string): string =>
+const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
