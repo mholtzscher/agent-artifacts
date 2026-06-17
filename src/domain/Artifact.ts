@@ -15,6 +15,7 @@ export type SourceType = Schema.Schema.Type<typeof SourceType>;
 export class UnsupportedSourceTypeError extends Schema.TaggedErrorClass<UnsupportedSourceTypeError>()(
   "UnsupportedSourceTypeError",
   { filename: Schema.String },
+  { httpApiStatus: 415 },
 ) {}
 
 export class Artifact extends Schema.Class<Artifact>("Artifact")({

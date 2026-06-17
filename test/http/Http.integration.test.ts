@@ -93,7 +93,7 @@ const publish = async (env: CloudflareBindings, filename: string, source: string
   form.append("file", new Blob([source]), filename);
   form.append("title", title);
 
-  const response = await request(env, "/api/artifacts", {
+  const response = await request(env, "/api/v1/artifacts", {
     method: "POST",
     headers: { "X-Write-Key": writeKey },
     body: form,
@@ -115,12 +115,64 @@ describe("HTTP artifact routes", () => {
     const form = new FormData();
     form.append("file", new Blob(["# Secretless"]), "secretless.md");
 
-    const response = await request(env, "/api/artifacts", {
+    const response = await request(env, "/api/v1/artifacts", {
       method: "POST",
       body: form,
     });
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    await expect(response.json()).resolves.toMatchObject({ _tag: "UnauthorizedError" });
+  });
+
+  it("does not keep the unversioned API route", async () => {
+    const env = makeEnv();
+
+    const response = await request(env, "/api/artifacts");
+
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects invalid write keys, missing files, and unsupported source types", async () => {
+    const env = makeEnv();
+
+    const invalidKeyForm = new FormData();
+    invalidKeyForm.append("file", new Blob(["# Nope"]), "nope.md");
+    const invalidKey = await request(env, "/api/v1/artifacts", {
+      method: "POST",
+      headers: { "X-Write-Key": "wrong" },
+      body: invalidKeyForm,
+    });
+    expect(invalidKey.status).toBe(403);
+    await expect(invalidKey.json()).resolves.toMatchObject({ _tag: "ForbiddenError" });
+
+    const missingFile = await request(env, "/api/v1/artifacts", {
+      method: "POST",
+      headers: { "X-Write-Key": writeKey },
+      body: new FormData(),
+    });
+    expect(missingFile.status).toBe(400);
+    await expect(missingFile.json()).resolves.toMatchObject({ _tag: "BadRequestError" });
+
+    const unsupportedForm = new FormData();
+    unsupportedForm.append("file", new Blob(["plain"]), "notes.txt");
+    const unsupported = await request(env, "/api/v1/artifacts", {
+      method: "POST",
+      headers: { "X-Write-Key": writeKey },
+      body: unsupportedForm,
+    });
+    expect(unsupported.status).toBe(415);
+    await expect(unsupported.json()).resolves.toMatchObject({ _tag: "UnsupportedSourceTypeError" });
+  });
+
+  it("returns not found for missing artifact pages and sources", async () => {
+    const env = makeEnv();
+
+    const page = await request(env, "/a/missing");
+    expect(page.status).toBe(404);
+
+    const source = await request(env, "/source/missing");
+    expect(source.status).toBe(404);
   });
 
   it("publishes Markdown and serves feed, rendered view, and immutable source", async () => {
@@ -132,15 +184,21 @@ describe("HTTP artifact routes", () => {
     expect(published.sourceUrl).toBe(`${baseUrl}/source/${published.slug}`);
     expect(published.artifactUrl).toBe(`${baseUrl}/a/${published.slug}`);
 
-    const feed = (await request(env, "/api/artifacts").then((response) => response.json())) as {
+    const feedResponse = await request(env, "/api/v1/artifacts");
+    expect(feedResponse.headers.get("content-type")).toContain("application/json");
+    const feed = (await feedResponse.json()) as {
       readonly artifacts: ReadonlyArray<{ readonly slug: string }>;
     };
     expect(feed.artifacts.some((artifact) => artifact.slug === published.slug)).toBe(true);
 
-    const source = await request(env, `/source/${published.slug}`).then((response) => response.text());
+    const sourceResponse = await request(env, `/source/${published.slug}`);
+    expect(sourceResponse.headers.get("content-type")).toContain("text/markdown");
+    const source = await sourceResponse.text();
     expect(source).toBe("# Hello\n\nWorld");
 
-    const rendered = await request(env, `/a/${published.slug}`).then((response) => response.text());
+    const renderedResponse = await request(env, `/a/${published.slug}`);
+    expect(renderedResponse.headers.get("content-type")).toContain("text/html");
+    const rendered = await renderedResponse.text();
     expect(rendered).toContain("<h1>Hello");
   });
 

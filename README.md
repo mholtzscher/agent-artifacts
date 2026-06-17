@@ -9,11 +9,11 @@ Public reads:
 - `GET /` — recent artifact feed
 - `GET /a/:slug` — rendered artifact page
 - `GET /source/:slug` — immutable source
-- `GET /api/artifacts` — recent artifact JSON
+- `GET /api/v1/artifacts` — recent artifact JSON
 
 Protected writes:
 
-- `POST /api/artifacts` — publish a Markdown or HTML artifact using `X-Write-Key`
+- `POST /api/v1/artifacts` — publish a Markdown or HTML artifact using `X-Write-Key`
 
 ## Runtime
 
@@ -34,7 +34,7 @@ Alchemy prints the local Worker URL, typically `http://localhost:1337/`.
 Publish an artifact:
 
 ```sh
-curl -X POST http://localhost:1337/api/artifacts \
+curl -X POST http://localhost:1337/api/v1/artifacts \
   -H "X-Write-Key: ap_test" \
   -F "file=@PLAN.md" \
   -F "title=Implementation Plan"

@@ -1,7 +1,7 @@
 import * as Layer from "effect/Layer";
 import { HttpRouter } from "effect/unstable/http";
 
-import { AppRouter } from "../http/Http.js";
+import { AppApiLive } from "../http/Http.js";
 import { ArtifactPublishingLive } from "../publishing/ArtifactPublishing.js";
 import { D1ArtifactRepositoryLive } from "../repository/d1/D1ArtifactRepository.js";
 import { R2ArtifactSourceStorageLive } from "../source-storage/r2/R2ArtifactSourceStorage.js";
@@ -12,9 +12,7 @@ const CloudflareLive = ArtifactPublishingLive.pipe(
 );
 
 const buildCloudflareApp = (env: CloudflareBindings) =>
-  HttpRouter.addAll(AppRouter).pipe(
-    HttpRouter.provideRequest(CloudflareLive.pipe(Layer.provide(CloudflareBindingsLive(env)))),
-  );
+  AppApiLive.pipe(Layer.provide(CloudflareLive), Layer.provide(CloudflareBindingsLive(env)));
 
 type WebHandler = (request: Request) => Promise<Response>;
 
@@ -26,9 +24,10 @@ const handlerForCloudflareEnv = (env: CloudflareBindings): WebHandler => {
     return existing;
   }
 
-  const { handler } = HttpRouter.toWebHandler(buildCloudflareApp(env));
-  handlers.set(env, handler);
-  return handler;
+  const { handler } = HttpRouter.toWebHandler(buildCloudflareApp(env) as never);
+  const webHandler: WebHandler = (request) => handler(request as never, undefined as never);
+  handlers.set(env, webHandler);
+  return webHandler;
 };
 
 export default {

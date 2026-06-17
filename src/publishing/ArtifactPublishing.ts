@@ -27,6 +27,7 @@ export interface PublishArtifactInput {
 export class SlugGenerationFailedError extends Schema.TaggedErrorClass<SlugGenerationFailedError>()(
   "SlugGenerationFailedError",
   { title: Schema.String },
+  { httpApiStatus: 409 },
 ) {}
 
 export type ArtifactPublishingError =

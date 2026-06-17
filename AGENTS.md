@@ -18,6 +18,8 @@ Prefer changes that keep the codebase easy to migrate to Effect v4. Avoid patter
 
 Use `Schema` for domain objects and boundary objects: persisted rows, HTTP request/response payloads, config, public DTOs, branded IDs, and structured errors. Plain TypeScript types are fine for small internal values that never cross a boundary.
 
+For HTTP-bound errors, define structured errors with `Schema.TaggedErrorClass` and put the HTTP status annotation directly on the error class using the third argument, for example `{ httpApiStatus: 404 }`. Use the error classes themselves in `HttpApiEndpoint` `error` declarations; do not create duplicate `FooErrorSchema = FooError.pipe(HttpApiSchema.status(...))` exports unless the same error type genuinely needs different statuses in different HTTP contexts. Prefer failing with these typed errors from route/auth/lookup helpers instead of failing with `HttpServerResponse` values. API endpoints should return typed JSON errors; browser-facing HTML/source routes may still return raw `HttpServerResponse` successes where content type or rendering requires it.
+
 When mapping between boundary shapes and domain shapes, prefer schema-level transforms (`Schema.transform` / `Schema.transformOrFail`) over ad hoc mapper functions. Decode with `Schema.decodeUnknown` at boundaries so validation failures stay in the Effect error channel, and encode through the same transform when writing back to the boundary so read/write mappings do not drift.
 
 For persisted rows, make schemas as strict as the storage contract allows. Reuse domain schemas for constrained values (`Schema.Literal` unions, branded IDs, state/source-type enums) and model SQLite booleans explicitly as `0 | 1` rather than accepting arbitrary numbers.

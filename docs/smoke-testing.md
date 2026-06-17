@@ -10,7 +10,7 @@ layout.
 A smoke test passes when:
 
 - The app starts locally without runtime errors.
-- A test HTML artifact can be published through `POST /api/artifacts`.
+- A test HTML artifact can be published through `POST /api/v1/artifacts`.
 - The returned artifact URL loads in a browser.
 - The artifact detail page has a compact top banner with:
   - Back link to recent artifacts
@@ -53,7 +53,7 @@ Wait until the server is responding instead of doing a single immediate `curl`:
 
 ```sh
 for i in $(seq 1 30); do
-  if curl -sS http://localhost:3000/api/artifacts >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
+  if curl -sS http://localhost:3000/api/v1/artifacts >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
     cat /tmp/artifacts-list.json
     break
   fi
@@ -110,7 +110,7 @@ EOF
 ## 3. Publish the artifact
 
 ```sh
-curl -sS -X POST http://localhost:3000/api/artifacts \
+curl -sS -X POST http://localhost:3000/api/v1/artifacts \
   -H 'X-Write-Key: ap_test' \
   -F 'file=@/tmp/artifact-smoke.html;type=text/html' \
   -F 'title=Smoke Test Artifact' \

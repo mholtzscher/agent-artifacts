@@ -29,7 +29,7 @@ If `AGENT_ARTIFACTS_BASE_URL` is not set but `PUBLIC_BASE_URL` is set in the cur
 Send a multipart form request:
 
 ```http
-POST <base-url>/api/artifacts
+POST <base-url>/api/v1/artifacts
 X-Write-Key: <write-key>
 ```
 
@@ -64,7 +64,7 @@ if [ -z "$BASE_URL" ] || [ -z "$WRITE_KEY" ]; then
   exit 1
 fi
 
-curl -fsS -X POST "$BASE_URL/api/artifacts" \
+curl -fsS -X POST "$BASE_URL/api/v1/artifacts" \
   -H "X-Write-Key: $WRITE_KEY" \
   -F "file=@${FILE}" \
   -F "title=${TITLE}" \
