@@ -2,13 +2,17 @@ import * as Layer from "effect/Layer";
 import { HttpRouter } from "effect/unstable/http";
 
 import { AppApiLive } from "../http/Http.js";
+import { ArtifactPublicationLive } from "../publishing/ArtifactPublication.js";
 import { ArtifactPresentationLive } from "../presentation/ArtifactPresentation.js";
 import { ArtifactPublishingLive } from "../publishing/ArtifactPublishing.js";
 import { D1ArtifactRepositoryLive } from "../repository/d1/D1ArtifactRepository.js";
 import { R2ArtifactSourceStorageLive } from "../source-storage/r2/R2ArtifactSourceStorage.js";
 import { CloudflareAppConfigLive, CloudflareBindingsLive, type CloudflareBindings } from "./Bindings.js";
 
-const CloudflareLive = Layer.mergeAll(ArtifactPublishingLive, ArtifactPresentationLive).pipe(
+const CloudflareLive = Layer.mergeAll(
+  ArtifactPresentationLive,
+  ArtifactPublicationLive.pipe(Layer.provide(ArtifactPublishingLive)),
+).pipe(
   Layer.provideMerge(Layer.mergeAll(CloudflareAppConfigLive, D1ArtifactRepositoryLive, R2ArtifactSourceStorageLive)),
 );
 

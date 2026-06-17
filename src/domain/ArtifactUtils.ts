@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Random from "effect/Random";
 import * as Result from "effect/Result";
 
 import { ArtifactId, Slug, type SourceType, UnsupportedSourceTypeError } from "./Artifact.js";
@@ -56,12 +57,12 @@ export const slugBase = (title: string): string => {
   return base === "" ? "artifact" : base;
 };
 
-export const makeSlugCandidate = (title: string): Slug => {
-  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(2)), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return Slug.make(`${slugBase(title)}-${suffix || "x"}`);
-};
+export const makeSlugCandidate = (title: string): Effect.Effect<Slug> =>
+  Effect.gen(function* () {
+    const bytes = [yield* Random.nextIntBetween(0, 255), yield* Random.nextIntBetween(0, 255)];
+    const suffix = bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return Slug.make(`${slugBase(title)}-${suffix}`);
+  });
 
 export const extensionForSourceType = (sourceType: SourceType): string => {
   switch (sourceType) {

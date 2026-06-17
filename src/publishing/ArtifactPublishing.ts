@@ -39,7 +39,7 @@ export type ArtifactPublishingError =
 const makeUniqueSlug = (title: string, slugExists: (slug: Slug) => Effect.Effect<boolean, ArtifactRepositoryError>) =>
   Effect.gen(function* () {
     for (let attempt = 0; attempt < 8; attempt++) {
-      const slug = makeSlugCandidate(title);
+      const slug = yield* makeSlugCandidate(title);
       if (!(yield* slugExists(slug))) {
         return slug;
       }
