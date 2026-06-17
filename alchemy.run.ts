@@ -16,7 +16,7 @@ export default Alchemy.Stack<
   "agent-artifacts",
   {
     providers: Cloudflare.providers(),
-    state: Alchemy.localState(),
+    state: Cloudflare.state(),
   },
   Effect.gen(function* () {
     const stage = yield* Alchemy.Stage;
