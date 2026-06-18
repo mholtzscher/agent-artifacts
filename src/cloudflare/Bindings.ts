@@ -1,3 +1,4 @@
+import { D1Client } from "@effect/sql-d1";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -15,6 +16,13 @@ export class CloudflareBindingsService extends Context.Service<CloudflareBinding
 ) {}
 
 export const CloudflareBindingsLive = (env: CloudflareBindings) => Layer.succeed(CloudflareBindingsService, env);
+
+export const CloudflareD1SqlLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const env = yield* CloudflareBindingsService;
+    return D1Client.layer({ db: env.DB });
+  }),
+);
 
 export const CloudflareAppConfigLive = Layer.effect(
   AppConfigService,

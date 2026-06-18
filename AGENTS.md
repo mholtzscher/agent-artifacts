@@ -28,9 +28,9 @@ Keep database schema management out of repository services. Repositories should 
 
 Do not create an Effect service just to run a one-time side effect. If there is no meaningful service API, prefer a named `Effect` or `Layer.effectDiscard` and compose/run it at the application edge.
 
-For SQLite migrations, prefer `@effect/sql-sqlite-bun/SqliteMigrator` over the generic migrator unless there is a specific reason not to. Keep migrations append-only and split schema evolution into separate numbered migrations; do not modify an already-recorded migration to perform new schema changes.
+For D1 migrations, keep alchemy's `Cloudflare.D1Database` resource as the schema lifecycle owner. Keep migrations append-only under `migrations/d1/` and split schema evolution into separate numbered migrations; do not modify an already-recorded migration to perform new schema changes.
 
-Prefer tagged SQL for static SQL statements. Reserve `sql.unsafe` for truly dynamic SQL that cannot be represented with the tagged SQL API.
+Use `@effect/sql-d1` for Cloudflare D1 access and prefer tagged SQL for static SQL statements. Reserve `sql.unsafe` for truly dynamic SQL that cannot be represented with the tagged SQL API.
 
 Compose/provide layers deliberately near the application edge. Avoid scattered duplicate `Effect.provide` / `Layer.provide` calls for the same dependency; build stable layer constants and provide each dependency once where practical.
 

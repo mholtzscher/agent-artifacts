@@ -24,7 +24,7 @@ A smoke test passes when:
 ## Prerequisites
 
 - Run commands from the repository root.
-- Use write key `ap_test` for local smoke testing.
+- The write key is read from `WRITE_KEY` in `.env` (see `alchemy.run.ts`: `Config.redacted("WRITE_KEY")`). Source `.env` before publishing; do not hardcode `ap_test`, which is only used by unit/integration tests that build bindings directly.
 - Run the app from Zellij.
 - Prefer `agent-browser` for automated browser verification.
 - Make sure dependencies are installed with Bun before starting the app:
@@ -42,18 +42,29 @@ APP_PANES=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="
 for id in $APP_PANES; do zellij action close-pane -p terminal_$id 2>/dev/null || true; done
 ```
 
-Start the app:
+Start the app with `alchemy dev` via `bun run dev:cloudflare` (there is no `bun run start` script). Alchemy loads `.env` automatically, so do not pass the write key inline:
 
 ```sh
-zellij run --name artifact-app --cwd "$PWD" -- sh -lc \
-  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:3000 bun run start'
+zellij run --name artifact-app --cwd "$PWD" -- sh -lc 'bun run dev:cloudflare'
 ```
+
+Alchemy prints the local Worker URL dynamically — it is not fixed to port 3000. Wait for the worker to report `updated`, then capture the URL from the pane output into `BASE_URL`:
+
+```sh
+APP_PANE=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="artifact-app") | .id' | tail -1)
+BASE_URL=$(zellij action dump-screen -p terminal_$APP_PANE --full \
+  | grep -oE 'url: "https?://[^"]+"' | head -1 | sed -E 's/url: "(.*)"/\1/')
+BASE_URL=${BASE_URL%/}
+echo "$BASE_URL"
+```
+
+If `BASE_URL` is empty, the worker has not finished starting — re-dump the pane and retry once `worker (Cloudflare.Worker) updated` appears.
 
 Wait until the server is responding instead of doing a single immediate `curl`:
 
 ```sh
 for i in $(seq 1 30); do
-  if curl -sS http://localhost:3000/api/v1/artifacts >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
+  if curl -sS "$BASE_URL/api/v1/artifacts" >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
     cat /tmp/artifacts-list.json
     break
   fi
@@ -70,7 +81,7 @@ APP_PANE=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="a
 zellij action dump-screen -p terminal_$APP_PANE --full
 ```
 
-If the app reports a SQLite open error, confirm `DATABASE_URL` resolves to a writable path and that the database directory can be created by the running process.
+D1 and R2 are provisioned by alchemy's `Cloudflare.D1Database` and `Cloudflare.R2Bucket` resources (local Miniflare-backed bindings); there is no `DATABASE_URL` to configure. If provisioning fails, look for alchemy errors in the pane output rather than a SQLite file path.
 
 ## 2. Generate a test HTML artifact
 
@@ -109,20 +120,23 @@ EOF
 
 ## 3. Publish the artifact
 
+Source `.env` so the publish request uses the same `WRITE_KEY` alchemy loaded into the Worker:
+
 ```sh
-curl -sS -X POST http://localhost:3000/api/v1/artifacts \
-  -H 'X-Write-Key: ap_test' \
+set -a; . ./.env; set +a
+curl -sS -X POST "$BASE_URL/api/v1/artifacts" \
+  -H "X-Write-Key: $WRITE_KEY" \
   -F 'file=@/tmp/artifact-smoke.html;type=text/html' \
   -F 'title=Smoke Test Artifact' \
   -F 'description=Generated smoke test artifact.' \
   | tee /tmp/artifact-smoke-response.json
 ```
 
-Extract the URL. Normalize relative URLs so the same variable works whether the
-API returns `/a/...` or an absolute URL:
+Extract the URL. Normalize relative URLs (the local Worker returns `/a/...`
+when `PUBLIC_BASE_URL` is unset) against `$BASE_URL`:
 
 ```sh
-ARTIFACT_URL=$(bun -e 'const r = await import("/tmp/artifact-smoke-response.json", { with: { type: "json" } }); const url = r.default.artifactUrl; console.log(url.startsWith("http") ? url : `http://localhost:3000${url}`)')
+ARTIFACT_URL=$(BASE_URL="$BASE_URL" bun -e 'const r = await import("/tmp/artifact-smoke-response.json", { with: { type: "json" } }); const url = r.default.artifactUrl; console.log(url.startsWith("http") ? url : `${process.env.BASE_URL}${url}`)')
 echo "$ARTIFACT_URL"
 ```
 

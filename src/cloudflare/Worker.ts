@@ -7,13 +7,20 @@ import { ArtifactPresentationLive } from "../presentation/ArtifactPresentation.j
 import { ArtifactPublisherLive } from "../publishing/ArtifactPublisher.js";
 import { D1ArtifactRepositoryLive } from "../repository/d1/D1ArtifactRepository.js";
 import { R2ArtifactSourceStorageLive } from "../source-storage/r2/R2ArtifactSourceStorage.js";
-import { CloudflareAppConfigLive, CloudflareBindingsLive, type CloudflareBindings } from "./Bindings.js";
+import {
+  CloudflareAppConfigLive,
+  CloudflareBindingsLive,
+  CloudflareD1SqlLive,
+  type CloudflareBindings,
+} from "./Bindings.js";
+
+const CloudflareRepositoryLive = D1ArtifactRepositoryLive.pipe(Layer.provide(CloudflareD1SqlLive));
 
 const CloudflareLive = Layer.mergeAll(
   ArtifactPresentationLive,
   ArtifactPublishIntakeLive.pipe(Layer.provide(ArtifactPublisherLive)),
 ).pipe(
-  Layer.provideMerge(Layer.mergeAll(CloudflareAppConfigLive, D1ArtifactRepositoryLive, R2ArtifactSourceStorageLive)),
+  Layer.provideMerge(Layer.mergeAll(CloudflareAppConfigLive, CloudflareRepositoryLive, R2ArtifactSourceStorageLive)),
 );
 
 const buildCloudflareApp = (env: CloudflareBindings) =>

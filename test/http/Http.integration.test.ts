@@ -11,14 +11,15 @@ const makeD1 = () => {
 
   const db = {
     prepare: (sql: string) => {
+      const normalizedSql = sql.replace(/\s+/g, " ").trim();
       let bound: ReadonlyArray<unknown> = [];
       const statement = {
         bind: (...values: ReadonlyArray<unknown>) => {
           bound = values;
           return statement;
         },
-        run: async () => {
-          if (sql.startsWith("insert into artifacts")) {
+        all: async () => {
+          if (normalizedSql.startsWith("insert into artifacts")) {
             rows.set(String(bound[1]), {
               id: bound[0],
               slug: bound[1],
@@ -39,16 +40,20 @@ const makeD1 = () => {
               created_at: bound[16],
               updated_at: bound[17],
             });
+            return { results: [], success: true };
           }
-          return { success: true };
-        },
-        first: async () => {
-          if (sql.startsWith("select count(*)")) {
-            return { count: rows.has(String(bound[0])) ? 1 : 0 };
+
+          if (normalizedSql.startsWith("select count(*)")) {
+            return { results: [{ count: rows.has(String(bound[0])) ? 1 : 0 }], success: true };
           }
-          return rows.get(String(bound[0])) ?? null;
+
+          if (normalizedSql.startsWith("select * from artifacts where slug")) {
+            const row = rows.get(String(bound[0]));
+            return { results: row === undefined ? [] : [row], success: true };
+          }
+
+          return { results: Array.from(rows.values()), success: true };
         },
-        all: async () => ({ results: Array.from(rows.values()) }),
       };
       return statement;
     },
