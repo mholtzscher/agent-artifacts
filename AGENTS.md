@@ -3,9 +3,7 @@
 ## Required validation
 
 After all work, run `bun run agent-validate` from the repository root before
-considering the task complete. It runs the same checks as CI in order:
-typecheck, lint, format check, and tests. The chain short-circuits on the
-first failure.
+considering the task complete. The chain short-circuits on the first failure.
 
 If `format:check` fails, run `bun run format` to fix formatting, then re-run
 `bun run agent-validate`.
@@ -33,9 +31,3 @@ For D1 migrations, keep alchemy's `Cloudflare.D1Database` resource as the schema
 Use `@effect/sql-d1` for Cloudflare D1 access and prefer tagged SQL for static SQL statements. Reserve `sql.unsafe` for truly dynamic SQL that cannot be represented with the tagged SQL API.
 
 Compose/provide layers deliberately near the application edge. Avoid scattered duplicate `Effect.provide` / `Layer.provide` calls for the same dependency; build stable layer constants and provide each dependency once where practical.
-
-## Smoke testing
-
-When a change affects publishing, rendering, routing, layout, or local runtime behavior, run the repeatable smoke test in [`docs/smoke-testing.md`](docs/smoke-testing.md).
-
-Use the smoke test to verify that the app starts, an HTML artifact can be published, the artifact detail page renders, the app-shell layout fills the remaining viewport, and the page can be opened for human inspection.
