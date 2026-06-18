@@ -14,6 +14,7 @@
     "lint": "oxlint --type-aware src test",
     "lint-fix": "bun run lint --fix",
     "dev:cloudflare": "alchemy dev --stage local alchemy.run.ts",
+    "dev:e2e": "bun test/e2e/server.ts",
     "deploy:staging": "alchemy deploy --stage staging alchemy.run.ts",
     "deploy:production": "alchemy deploy --stage production alchemy.run.ts",
     "test": "vitest",
