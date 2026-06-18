@@ -5,6 +5,7 @@ import * as Output from "alchemy/Output";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { seedPreviewArtifacts } from "./scripts/seed-preview.js";
 
 export default Alchemy.Stack(
   "agent-artifacts",
@@ -76,10 +77,30 @@ export default Alchemy.Stack(
       },
     });
 
-    // Post a preview URL comment on PR deployments.
-    // The comment is created on the first deploy and auto-updates on
-    // subsequent pushes because the logical ID stays the same.
+    // Post a preview URL comment on PR deployments, and seed a couple of
+    // sample artifacts so reviewers see a non-empty feed. The comment is
+    // created on the first deploy and auto-updates on subsequent pushes
+    // because the logical ID stays the same. Seeding is idempotent: it skips
+    // when the catalog already has artifacts, so redeploys of the same PR do
+    // not create duplicates.
     if (process.env.PULL_REQUEST) {
+      const writeKey = process.env.WRITE_KEY;
+      if (writeKey) {
+        // `worker.url` is an alchemy Output expression, not a resolved string,
+        // so the seed side effect must run through `Output.mapEffect` to get
+        // the resolved URL at evaluation time. The seed is best-effort and
+        // swallows its own errors, so a failed seed never breaks the deploy.
+        yield* worker.url.pipe(
+          Output.mapEffect((url) =>
+            url === undefined
+              ? Effect.logWarning("preview seed skipped: worker url unresolved")
+              : Effect.promise(() => seedPreviewArtifacts({ baseUrl: url, writeKey })),
+          ),
+        );
+      } else {
+        yield* Effect.logWarning("preview seed skipped: WRITE_KEY not set");
+      }
+
       yield* GitHub.Comment("preview-comment", {
         owner: process.env.GITHUB_REPOSITORY_OWNER!,
         repository: process.env.GITHUB_REPOSITORY_NAME!,
