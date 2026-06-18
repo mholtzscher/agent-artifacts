@@ -24,3 +24,4 @@ run_step check          bun run check          || exit 1
 run_step lint           bun run lint           || exit 1
 run_step "format:check" bun run format:check   || exit 1
 run_step test           bun run test --run     || exit 1
+run_step e2e            bun run test:e2e       || exit 1

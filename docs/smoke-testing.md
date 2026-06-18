@@ -1,9 +1,19 @@
 # Smoke Testing
 
-This project uses a fast publish-and-view flow as its primary smoke test. The
-goal is to verify that the app can start, accept a published artifact, render
-the artifact detail page, and keep the rendered view in the intended app-shell
-layout.
+This project uses automated Playwright E2E tests as its primary smoke check.
+The goal is to verify that the app can start, API endpoints behave correctly, a
+published artifact can be served, the artifact detail page renders in a real
+browser, and the rendered view stays in the intended app-shell layout.
+
+Run the default automated smoke check with:
+
+```sh
+bun run test:e2e
+```
+
+`bun run agent-validate` also runs this E2E suite as its final step. The manual
+`agent-browser` flow below is fallback diagnostics for investigating failures or
+collecting extra visual evidence.
 
 ## Success criteria
 
@@ -19,21 +29,32 @@ A smoke test passes when:
 - The rendered artifact fills the remaining viewport width and height.
 - The outer page does not have a vertical scrollbar; scrolling is contained in
   the rendered content when needed.
-- Agent-run browser assertions produce saved evidence for the artifact page.
+- Playwright browser assertions pass for the artifact page.
 
 ## Prerequisites
 
 - Run commands from the repository root.
-- The write key is read from `WRITE_KEY` in `.env` (see `alchemy.run.ts`: `Config.redacted("WRITE_KEY")`). Source `.env` before publishing; do not hardcode `ap_test`, which is only used by unit/integration tests that build bindings directly.
-- Run the app from Zellij.
-- Prefer `agent-browser` for automated browser verification.
+- Use write key `ap_test` for local smoke testing.
+- Prefer `bun run test:e2e` for automated smoke verification.
+- Use the Zellij/`agent-browser` steps below only as fallback diagnostics.
 - Make sure dependencies are installed with Bun before starting the app:
 
 ```sh
 bun install
 ```
 
-## 1. Start the app in Zellij
+## Automated smoke check
+
+```sh
+bun run test:e2e
+```
+
+The Playwright suite starts the local app, validates API success/error behavior,
+publishes Markdown and HTML artifacts, fetches source/rendered routes, opens an
+HTML artifact page in Chromium, and checks the app-shell layout. It uses
+`WRITE_KEY=ap_test` for the local server.
+
+## Manual fallback: Start the app in Zellij
 
 Close any stale smoke-test pane first:
 
@@ -45,7 +66,8 @@ for id in $APP_PANES; do zellij action close-pane -p terminal_$id 2>/dev/null ||
 Start the app with `alchemy dev` via `bun run dev:cloudflare` (there is no `bun run start` script). Alchemy loads `.env` automatically, so do not pass the write key inline:
 
 ```sh
-zellij run --name artifact-app --cwd "$PWD" -- sh -lc 'bun run dev:cloudflare'
+zellij run --name artifact-app --cwd "$PWD" -- sh -lc \
+  'WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:1339 bun run dev:cloudflare'
 ```
 
 Alchemy prints the local Worker URL dynamically — it is not fixed to port 3000. Wait for the worker to report `updated`, then capture the URL from the pane output into `BASE_URL`:
@@ -64,7 +86,7 @@ Wait until the server is responding instead of doing a single immediate `curl`:
 
 ```sh
 for i in $(seq 1 30); do
-  if curl -sS "$BASE_URL/api/v1/artifacts" >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
+  if curl -sS http://localhost:1339/api/v1/artifacts >/tmp/artifacts-list.json 2>/tmp/artifact-smoke-curl.err; then
     cat /tmp/artifacts-list.json
     break
   fi
@@ -83,7 +105,7 @@ zellij action dump-screen -p terminal_$APP_PANE --full
 
 D1 and R2 are provisioned by alchemy's `Cloudflare.D1Database` and `Cloudflare.R2Bucket` resources (local Miniflare-backed bindings); there is no `DATABASE_URL` to configure. If provisioning fails, look for alchemy errors in the pane output rather than a SQLite file path.
 
-## 2. Generate a test HTML artifact
+## Manual fallback: Generate a test HTML artifact
 
 ```sh
 cat > /tmp/artifact-smoke.html <<'EOF'
@@ -118,14 +140,13 @@ cat > /tmp/artifact-smoke.html <<'EOF'
 EOF
 ```
 
-## 3. Publish the artifact
+## Manual fallback: Publish the artifact
 
 Source `.env` so the publish request uses the same `WRITE_KEY` alchemy loaded into the Worker:
 
 ```sh
-set -a; . ./.env; set +a
-curl -sS -X POST "$BASE_URL/api/v1/artifacts" \
-  -H "X-Write-Key: $WRITE_KEY" \
+curl -sS -X POST http://localhost:1339/api/v1/artifacts \
+  -H 'X-Write-Key: ap_test' \
   -F 'file=@/tmp/artifact-smoke.html;type=text/html' \
   -F 'title=Smoke Test Artifact' \
   -F 'description=Generated smoke test artifact.' \
@@ -136,11 +157,11 @@ Extract the URL. Normalize relative URLs (the local Worker returns `/a/...`
 when `PUBLIC_BASE_URL` is unset) against `$BASE_URL`:
 
 ```sh
-ARTIFACT_URL=$(BASE_URL="$BASE_URL" bun -e 'const r = await import("/tmp/artifact-smoke-response.json", { with: { type: "json" } }); const url = r.default.artifactUrl; console.log(url.startsWith("http") ? url : `${process.env.BASE_URL}${url}`)')
+ARTIFACT_URL=$(bun -e 'const r = await import("/tmp/artifact-smoke-response.json", { with: { type: "json" } }); const url = r.default.artifactUrl; console.log(url.startsWith("http") ? url : `http://localhost:1339${url}`)')
 echo "$ARTIFACT_URL"
 ```
 
-## 4. Verify with agent-browser
+## Manual fallback: Verify with agent-browser
 
 ```sh
 agent-browser open "$ARTIFACT_URL"
@@ -197,7 +218,7 @@ agent-browser screenshot /tmp/artifact-smoke.png
 This is useful to keep as a quick visual artifact when reporting the smoke-test
 result.
 
-## 5. Record evidence
+## Manual fallback: Record evidence
 
 Keep the agent-browser snapshot, layout assertion output, and optional
 screenshot as evidence for the run:
@@ -210,7 +231,7 @@ agent-browser screenshot /tmp/artifact-smoke.png
 The smoke test should be fully agent-driven. Do not require manual desktop
 browser inspection for pass/fail.
 
-## 6. Shut down
+## Manual fallback: Shut down
 
 ```sh
 APP_PANES=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="artifact-app" and .exited==false) | .id')

@@ -7,5 +7,5 @@ dist/
 /.tsbuildinfo
 /build
 /.alchemy
-/.worktrees
-/.worktrees
+/test-results
+/playwright-report
