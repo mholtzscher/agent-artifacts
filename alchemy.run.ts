@@ -62,7 +62,7 @@ export default Alchemy.Stack(
 
     const worker = yield* Cloudflare.Worker("worker", {
       name: `${resourcePrefix}-worker`,
-      main: "./src/cloudflare/Worker.ts",
+      main: "./src/runtime/Worker.ts",
       url: !isProduction,
       ...(isProduction ? { domain: productionDomain } : {}),
       compatibility: {
