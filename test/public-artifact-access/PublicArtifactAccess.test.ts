@@ -112,6 +112,23 @@ describe("PublicArtifactAccess", () => {
       expect(html).toContain("&lt;script&gt;");
     });
 
+    it("escapes HTML in the Artifact title", async () => {
+      const xssArtifact = Artifact.make({
+        ...baseFields,
+        sourceType: "markdown",
+        state: "active",
+        title: '<script>alert("xss")</script>',
+      });
+
+      const html = await run(
+        Layer.mergeAll(catalogWith(Option.some(xssArtifact)), sourceWith(mdSource)),
+        renderedViewProgram(slug),
+      );
+
+      expect(html).not.toContain('<script>alert("xss")</script>');
+      expect(html).toContain("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;");
+    });
+
     it("fails with ArtifactNotFoundError when the artifact does not exist", async () => {
       await expect(
         run(Layer.mergeAll(catalogWith(Option.none()), sourceWith(mdSource)), renderedViewProgram(slug)),

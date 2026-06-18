@@ -70,6 +70,14 @@ const runFeed = (catalog: Layer.Layer<ArtifactCatalog>) =>
     }).pipe(Effect.provide(PublicArtifactAccessLive.pipe(Layer.provide(Layer.mergeAll(catalog, sourceTest))))),
   );
 
+const runHomePage = (catalog: Layer.Layer<ArtifactCatalog>) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const access = yield* PublicArtifactAccess;
+      return yield* access.homePage;
+    }).pipe(Effect.provide(PublicArtifactAccessLive.pipe(Layer.provide(Layer.mergeAll(catalog, sourceTest))))),
+  );
+
 describe("PublicArtifactAccess recent feed", () => {
   it("owns the recent feed limit and projects Artifacts into feed items", async () => {
     let requestedLimit: number | undefined;
@@ -110,6 +118,20 @@ describe("PublicArtifactAccess recent feed", () => {
         artifactUrl: "/a/withdrawn-feed-artifact-b2",
       }),
     ]);
+  });
+
+  it("renders the home page empty state through the public seam", async () => {
+    const html = await runHomePage(catalogTest(() => Effect.succeed([])));
+
+    expect(html).toContain("No artifacts published yet.");
+  });
+
+  it("renders artifact cards on the home page through the public seam", async () => {
+    const html = await runHomePage(catalogTest(() => Effect.succeed([activeArtifact])));
+
+    expect(html).toContain('href="/a/feed-artifact-a1"');
+    expect(html).toContain("Feed Artifact");
+    expect(html).toContain("markdown");
   });
 
   it("maps catalog errors at the public access seam", async () => {
