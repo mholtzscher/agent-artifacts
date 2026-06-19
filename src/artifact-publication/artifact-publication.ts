@@ -20,11 +20,11 @@ import {
   Slug,
   type SourceType,
   UnsupportedSourceTypeError,
-} from "../domain/Artifact.js";
-import { BadRequestError, ForbiddenError, ServerError, UnauthorizedError } from "../domain/ArtifactErrors.js";
-import { ArtifactCatalog, type ArtifactCatalogError } from "../artifact-catalog/ArtifactCatalog.js";
-import { ArtifactSource, type ArtifactSourceError } from "../artifact-source/ArtifactSource.js";
-import { AppConfigService } from "../runtime/Config.js";
+} from "../domain/artifact.js";
+import { BadRequestError, ForbiddenError, ServerError, UnauthorizedError } from "../domain/artifact-errors.js";
+import { ArtifactCatalog, type ArtifactCatalogError } from "../artifact-catalog/artifact-catalog.js";
+import { ArtifactSource, type ArtifactSourceError } from "../artifact-source/artifact-source.js";
+import { AppConfig } from "../runtime/config.js";
 
 export class SlugGenerationFailedError extends Schema.TaggedErrorClass<SlugGenerationFailedError>()(
   "SlugGenerationFailedError",
@@ -238,7 +238,7 @@ export class ArtifactPublication extends Context.Service<
 export const ArtifactPublicationLive = Layer.effect(
   ArtifactPublication,
   Effect.gen(function* () {
-    const config = yield* AppConfigService;
+    const config = yield* AppConfig;
     const catalog = yield* ArtifactCatalog;
     const source = yield* ArtifactSource;
 
@@ -358,7 +358,7 @@ export const ArtifactPublicationApiGroup = HttpApiGroup.make("artifact-publicati
 
 const ArtifactPublicationApi = HttpApi.make("AgentArtifactsApi").add(ArtifactPublicationApiGroup);
 
-export const ArtifactPublicationApiLive = HttpApiBuilder.group(
+export const ArtifactPublicationHttpLive = HttpApiBuilder.group(
   ArtifactPublicationApi,
   "artifact-publication",
   (handlers) =>

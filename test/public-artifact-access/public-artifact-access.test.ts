@@ -3,13 +3,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, Slug } from "../../src/domain/Artifact.js";
-import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/ArtifactCatalog.js";
-import { ArtifactSource, ArtifactSourceBackendError } from "../../src/artifact-source/ArtifactSource.js";
+import { Artifact, Slug } from "../../src/domain/artifact.js";
+import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/artifact-catalog.js";
+import { ArtifactSource, ArtifactSourceBackendError } from "../../src/artifact-source/artifact-source.js";
 import {
   PublicArtifactAccess,
   PublicArtifactAccessLive,
-} from "../../src/public-artifact-access/PublicArtifactAccess.js";
+} from "../../src/public-artifact-access/public-artifact-access.js";
 
 const slug = Slug.make("test-artifact-a1b2");
 

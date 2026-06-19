@@ -7,23 +7,23 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema";
 
-import { ArtifactCatalog } from "../artifact-catalog/ArtifactCatalog.js";
-import { ArtifactSource } from "../artifact-source/ArtifactSource.js";
-import { Slug } from "../domain/Artifact.js";
-import { ArtifactNotFoundError, ArtifactWithdrawnError, ServerError } from "../domain/ArtifactErrors.js";
+import { ArtifactCatalog } from "../artifact-catalog/artifact-catalog.js";
+import { ArtifactSource } from "../artifact-source/artifact-source.js";
+import { Slug } from "../domain/artifact.js";
+import { ArtifactNotFoundError, ArtifactWithdrawnError, ServerError } from "../domain/artifact-errors.js";
 import {
   loadActiveArtifactSource,
   sourceContentType,
   type PublicArtifactAccessError,
   type PublicArtifactSource,
-} from "./internal/ArtifactLookup.js";
+} from "./internal/artifact-lookup.js";
 import {
   PublicArtifactFeedResponse,
   publicArtifactItem,
   recentArtifactFeedLimit,
   type PublicArtifactFeedResponse as PublicArtifactFeedResponseType,
-} from "./internal/PublicArtifactFeed.js";
-import { renderArtifactPage, renderFeedPage } from "./internal/RenderedView.js";
+} from "./internal/public-artifact-feed.js";
+import { renderArtifactPage, renderFeedPage } from "./internal/rendered-view.js";
 
 const toServerError = () => new ServerError({ message: "Internal server error" });
 
@@ -82,7 +82,7 @@ export const PublicArtifactApiGroup = HttpApiGroup.make("public-artifact-api")
   )
   .prefix("/api/v1");
 
-export const PublicArtifactBrowserGroup = HttpApiGroup.make("public-artifact-browser").add(
+export const PublicArtifactBrowserApiGroup = HttpApiGroup.make("public-artifact-browser").add(
   HttpApiEndpoint.get("getHome", "/", {
     success: HtmlResponse,
     error: ServerError,
@@ -99,9 +99,9 @@ export const PublicArtifactBrowserGroup = HttpApiGroup.make("public-artifact-bro
   }),
 );
 
-const PublicArtifactApi = HttpApi.make("AgentArtifactsApi").add(PublicArtifactApiGroup, PublicArtifactBrowserGroup);
+const PublicArtifactApi = HttpApi.make("AgentArtifactsApi").add(PublicArtifactApiGroup, PublicArtifactBrowserApiGroup);
 
-export const PublicArtifactHttpLive = HttpApiBuilder.group(PublicArtifactApi, "public-artifact-api", (handlers) =>
+export const PublicArtifactAccessHttpLive = HttpApiBuilder.group(PublicArtifactApi, "public-artifact-api", (handlers) =>
   handlers.handle("getFeedJson", () =>
     Effect.gen(function* () {
       const access = yield* PublicArtifactAccess;

@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, type ArtifactId, type Slug } from "../../src/domain/Artifact.js";
-import { ArtifactRowSchema, type ArtifactRow } from "../../src/artifact-catalog/ArtifactCatalog.js";
+import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
+import { ArtifactRowSchema, type ArtifactRow } from "../../src/artifact-catalog/artifact-catalog.js";
 
 const artifact = Artifact.make({
   id: "art_row" as ArtifactId,

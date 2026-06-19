@@ -4,8 +4,8 @@
  */
 import MarkdownIt from "markdown-it";
 
-import { type Artifact, Slug } from "../../domain/Artifact.js";
-import { type PublicArtifactItem } from "./PublicArtifactFeed.js";
+import { type Artifact, Slug } from "../../domain/artifact.js";
+import { type PublicArtifactItem } from "./public-artifact-feed.js";
 
 const markdown = new MarkdownIt({
   html: true,

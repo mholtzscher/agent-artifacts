@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, type ArtifactId, type Slug } from "../../src/domain/Artifact.js";
-import { ArtifactCatalog } from "../../src/artifact-catalog/ArtifactCatalog.js";
-import { D1ArtifactCatalogLive } from "../../src/artifact-catalog/d1/D1ArtifactCatalog.js";
-import { D1MiniflareSqlLive } from "../cloudflare/D1Miniflare.js";
+import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
+import { ArtifactCatalog } from "../../src/artifact-catalog/artifact-catalog.js";
+import { D1ArtifactCatalogLive } from "../../src/artifact-catalog/d1/d1-artifact-catalog.js";
+import { D1MiniflareSqlLive } from "../cloudflare/d1-miniflare.js";
 
 const artifact = Artifact.make({
   id: "art_d1" as ArtifactId,

@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, type ArtifactId, type Slug } from "../../src/domain/Artifact.js";
-import { CloudflareBindingsLive, type CloudflareBindings } from "../../src/runtime/Bindings.js";
-import { ArtifactSource } from "../../src/artifact-source/ArtifactSource.js";
-import { R2ArtifactSourceLive, r2SourceKeyFor } from "../../src/artifact-source/r2/R2ArtifactSource.js";
+import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
+import { CloudflareBindingsLive, type CloudflareEnv } from "../../src/runtime/bindings.js";
+import { ArtifactSource } from "../../src/artifact-source/artifact-source.js";
+import { R2ArtifactSourceLive, r2SourceKeyFor } from "../../src/artifact-source/r2/r2-artifact-source.js";
 
 const baseFields = {
   id: "art_123" as ArtifactId,
@@ -28,7 +28,7 @@ const baseFields = {
 const artifact = Artifact.make({ ...baseFields, sourceType: "markdown", sourceFilename: "r2.md" });
 const htmlArtifact = Artifact.make({ ...baseFields, sourceType: "html", sourceFilename: "r2.html" });
 
-const makeEnv = (bucket: R2Bucket): CloudflareBindings => ({
+const makeEnv = (bucket: R2Bucket): CloudflareEnv => ({
   DB: {} as D1Database,
   SOURCES: bucket,
   AGENT_ARTIFACTS_WRITE_KEY: "ap_test",

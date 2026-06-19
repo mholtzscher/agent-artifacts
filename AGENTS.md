@@ -31,3 +31,21 @@ For D1 migrations, keep alchemy's `Cloudflare.D1Database` resource as the schema
 Use `@effect/sql-d1` for Cloudflare D1 access and prefer tagged SQL for static SQL statements. Reserve `sql.unsafe` for truly dynamic SQL that cannot be represented with the tagged SQL API.
 
 Compose/provide layers deliberately near the application edge. Avoid scattered duplicate `Effect.provide` / `Layer.provide` calls for the same dependency; build stable layer constants and provide each dependency once where practical.
+
+## Naming conventions
+
+Use these rules when naming or refactoring services, layers, modules, and tests:
+
+- Effect service tags do not use a `Service` suffix. Name them by capability or runtime dependency, for example `ArtifactCatalog`, `ArtifactSource`, `ArtifactPublication`, `PublicArtifactAccess`, `AppConfig`, and `CloudflareBindings`. Keep service tag keys as stable domain identifiers matching the service name, for example `AgentArtifacts/AppConfig`, with no `Service` suffix or implementation/platform detail.
+- When a service tag would collide with a raw boundary/config shape, give the raw shape a distinct name. Use `AppConfigDefinition` for the Effect config definition, `AppConfigShape` for the raw config object type, and `CloudflareEnv` for the raw Cloudflare Worker environment interface.
+- Exported `Layer` values always end in `Live`.
+- Implementation-backed layers put the implementation or platform prefix first, for example `D1ArtifactCatalogLive`, `R2ArtifactSourceLive`, `CloudflareD1SqlLive`, and `CloudflareConfigProviderLive`.
+- HTTP API contracts and groups use `Api` / `ApiGroup`; HTTP handler layers use `HttpLive`. For example, use `ArtifactPublicationHttpLive`, `PublicArtifactAccessHttpLive`, `AppApi`, `AppHttpLive`, and `PublicArtifactBrowserApiGroup`.
+- Keep capability names precise and domain-oriented. Prefer `ArtifactCatalog`, `ArtifactSource`, `ArtifactPublication`, and `PublicArtifactAccess` over generic names like `ArtifactService`.
+- Use kebab-case for every source and test filename. Do not add barrels just to hide filenames; keep direct imports explicit. Adapter filenames should include the technology prefix even inside technology subdirectories, for example `artifact-catalog/d1/d1-artifact-catalog.ts`.
+- Internal helper modules should be kebab-case files with plain helper exports. Do not promote helpers to services/layers unless there is a real service API.
+- Use a `Schema` suffix only when it disambiguates a representation or adapter schema, for example `ArtifactRowSchema`. Otherwise prefer idiomatic Effect Schema value/type pairs such as `Artifact` or `PublicArtifactFeedResponse`.
+- Structured error classes always end in `Error`. Keep shared HTTP/domain errors in the domain module, service-specific backend errors next to their service contract, and use-case-specific errors next to the use case.
+- Runtime-only composed layers should have descriptive names and still end in `Live`; use `CloudflareServicesLive` for the app service graph backed by Cloudflare infrastructure.
+- Do not rename service methods as part of a naming-convention refactor unless method semantics are explicitly in scope.
+- Do not combine a naming-convention refactor with a migration from `Context.Service` to `Effect.Service`; do that separately if needed.

@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import type { PlatformError } from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
-import { type Artifact } from "../domain/Artifact.js";
+import { type Artifact } from "../domain/artifact.js";
 
 export class ArtifactSourceBackendError extends Schema.TaggedErrorClass<ArtifactSourceBackendError>()(
   "ArtifactSourceBackendError",

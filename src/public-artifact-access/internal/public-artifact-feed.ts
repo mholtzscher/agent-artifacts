@@ -4,7 +4,7 @@
  */
 import * as Schema from "effect/Schema";
 
-import { type Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../../domain/Artifact.js";
+import { type Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../../domain/artifact.js";
 
 export const recentArtifactFeedLimit = 50;
 

@@ -3,9 +3,9 @@ import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import { describe, expect, it } from "vitest";
 
-import { AppConfig } from "../../src/runtime/Config.js";
+import { AppConfigDefinition } from "../../src/runtime/config.js";
 
-const parseAppConfig = (env: Record<string, string>) => AppConfig.parse(ConfigProvider.fromEnv({ env }));
+const parseAppConfig = (env: Record<string, string>) => AppConfigDefinition.parse(ConfigProvider.fromEnv({ env }));
 
 describe("configuration", () => {
   it("parses Cloudflare app config from Worker bindings", () => {

@@ -5,10 +5,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { type Artifact, type Slug } from "../../domain/Artifact.js";
-import { ArtifactNotFoundError, ArtifactWithdrawnError, ServerError } from "../../domain/ArtifactErrors.js";
-import { type ArtifactCatalogError } from "../../artifact-catalog/ArtifactCatalog.js";
-import { type ArtifactSourceError } from "../../artifact-source/ArtifactSource.js";
+import { type Artifact, type Slug } from "../../domain/artifact.js";
+import { ArtifactNotFoundError, ArtifactWithdrawnError, ServerError } from "../../domain/artifact-errors.js";
+import { type ArtifactCatalogError } from "../../artifact-catalog/artifact-catalog.js";
+import { type ArtifactSourceError } from "../../artifact-source/artifact-source.js";
 
 export interface PublicArtifactSource {
   readonly bytes: Uint8Array;

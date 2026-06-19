@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { type Artifact, type SourceType } from "../../domain/Artifact.js";
-import { CloudflareBindingsService } from "../../runtime/Bindings.js";
-import { ArtifactSource, ArtifactSourceBackendError } from "../ArtifactSource.js";
+import { type Artifact, type SourceType } from "../../domain/artifact.js";
+import { CloudflareBindings } from "../../runtime/bindings.js";
+import { ArtifactSource, ArtifactSourceBackendError } from "../artifact-source.js";
 
 const extensionForSourceType = (sourceType: SourceType): string => {
   switch (sourceType) {
@@ -20,7 +20,7 @@ export const r2SourceKeyFor = (artifact: Artifact) =>
 export const R2ArtifactSourceLive = Layer.effect(
   ArtifactSource,
   Effect.gen(function* () {
-    const env = yield* CloudflareBindingsService;
+    const env = yield* CloudflareBindings;
     const bucket = env.SOURCES;
 
     return ArtifactSource.of({

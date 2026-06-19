@@ -7,11 +7,11 @@ import * as Random from "effect/Random";
 import { HttpServerRequest } from "effect/unstable/http";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, type Slug } from "../../src/domain/Artifact.js";
-import { ArtifactPublication, ArtifactPublicationLive } from "../../src/artifact-publication/ArtifactPublication.js";
-import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/ArtifactCatalog.js";
-import { ArtifactSource, ArtifactSourceBackendError } from "../../src/artifact-source/ArtifactSource.js";
-import { AppConfigLive, AppConfigService } from "../../src/runtime/Config.js";
+import { Artifact, type Slug } from "../../src/domain/artifact.js";
+import { ArtifactPublication, ArtifactPublicationLive } from "../../src/artifact-publication/artifact-publication.js";
+import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/artifact-catalog.js";
+import { ArtifactSource, ArtifactSourceBackendError } from "../../src/artifact-source/artifact-source.js";
+import { AppConfigLive, AppConfig } from "../../src/runtime/config.js";
 
 const writeKey = "ap_test";
 const publicBaseUrl = "http://test.local";
@@ -81,7 +81,7 @@ const sourceTest = (overrides?: {
 const runPublication = (
   request: Request,
   deps: Layer.Layer<ArtifactCatalog | ArtifactSource> = Layer.mergeAll(catalogTest(), sourceTest()),
-  config: Layer.Layer<AppConfigService, ConfigError> = configTest,
+  config: Layer.Layer<AppConfig, ConfigError> = configTest,
 ) => {
   const live = ArtifactPublicationLive.pipe(Layer.provide(Layer.mergeAll(config, deps)));
   return Effect.runPromise(

@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaGetter from "effect/SchemaGetter";
 import type { SqlError } from "effect/unstable/sql";
 
-import { Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../domain/Artifact.js";
+import { Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../domain/artifact.js";
 
 const ArtifactRowStruct = Schema.Struct({
   id: ArtifactId,

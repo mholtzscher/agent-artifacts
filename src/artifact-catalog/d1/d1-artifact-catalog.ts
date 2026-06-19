@@ -4,8 +4,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
-import { type Artifact, type Slug } from "../../domain/Artifact.js";
-import { ArtifactCatalog, ArtifactRowSchema, type ArtifactRow } from "../ArtifactCatalog.js";
+import { type Artifact, type Slug } from "../../domain/artifact.js";
+import { ArtifactCatalog, ArtifactRowSchema, type ArtifactRow } from "../artifact-catalog.js";
 
 export const D1ArtifactCatalogLive = Layer.effect(
   ArtifactCatalog,

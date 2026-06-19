@@ -3,13 +3,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
-import { Artifact, type ArtifactId, type Slug } from "../../src/domain/Artifact.js";
-import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/ArtifactCatalog.js";
-import { ArtifactSource } from "../../src/artifact-source/ArtifactSource.js";
+import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
+import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/artifact-catalog.js";
+import { ArtifactSource } from "../../src/artifact-source/artifact-source.js";
 import {
   PublicArtifactAccess,
   PublicArtifactAccessLive,
-} from "../../src/public-artifact-access/PublicArtifactAccess.js";
+} from "../../src/public-artifact-access/public-artifact-access.js";
 
 const baseFields = {
   id: "feed-id-1" as ArtifactId,
