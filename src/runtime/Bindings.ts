@@ -1,9 +1,8 @@
 import { D1Client } from "@effect/sql-d1";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-
-import { AppConfigService, makeAppConfig } from "./Config.js";
 
 export interface CloudflareBindings {
   readonly DB: D1Database;
@@ -25,13 +24,15 @@ export const CloudflareD1SqlLive = Layer.unwrap(
   }),
 );
 
-export const CloudflareAppConfigLive = Layer.effect(
-  AppConfigService,
+export const CloudflareConfigProviderLive = Layer.effect(
+  ConfigProvider.ConfigProvider,
   Effect.gen(function* () {
     const env = yield* CloudflareBindingsService;
-    return makeAppConfig({
-      publicBaseUrl: env.PUBLIC_BASE_URL,
-      writeKey: env.AGENT_ARTIFACTS_WRITE_KEY,
+    return ConfigProvider.fromEnv({
+      env: {
+        ...(env.PUBLIC_BASE_URL === undefined ? {} : { PUBLIC_BASE_URL: env.PUBLIC_BASE_URL }),
+        AGENT_ARTIFACTS_WRITE_KEY: env.AGENT_ARTIFACTS_WRITE_KEY,
+      },
     });
   }),
 );

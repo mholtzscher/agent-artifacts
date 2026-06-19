@@ -1,3 +1,5 @@
+import * as ConfigProvider from "effect/ConfigProvider";
+import type { ConfigError } from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -9,12 +11,23 @@ import { Artifact, type Slug } from "../../src/domain/Artifact.js";
 import { ArtifactPublication, ArtifactPublicationLive } from "../../src/artifact-publication/ArtifactPublication.js";
 import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/ArtifactCatalog.js";
 import { ArtifactSource, ArtifactSourceBackendError } from "../../src/artifact-source/ArtifactSource.js";
-import { AppConfigService, makeAppConfig } from "../../src/runtime/Config.js";
+import { AppConfigLive, AppConfigService } from "../../src/runtime/Config.js";
 
 const writeKey = "ap_test";
 const publicBaseUrl = "http://test.local";
 
-const configTest = Layer.succeed(AppConfigService, makeAppConfig({ publicBaseUrl, writeKey }));
+const configTest = AppConfigLive.pipe(
+  Layer.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({
+        env: { PUBLIC_BASE_URL: publicBaseUrl, AGENT_ARTIFACTS_WRITE_KEY: writeKey },
+      }),
+    ),
+  ),
+);
+const configRelativeTest = AppConfigLive.pipe(
+  Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AGENT_ARTIFACTS_WRITE_KEY: writeKey } }))),
+);
 const httpReqTest = (request: Request) =>
   Layer.succeed(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(request));
 
@@ -68,8 +81,9 @@ const sourceTest = (overrides?: {
 const runPublication = (
   request: Request,
   deps: Layer.Layer<ArtifactCatalog | ArtifactSource> = Layer.mergeAll(catalogTest(), sourceTest()),
+  config: Layer.Layer<AppConfigService, ConfigError> = configTest,
 ) => {
-  const live = ArtifactPublicationLive.pipe(Layer.provide(Layer.mergeAll(configTest, deps)));
+  const live = ArtifactPublicationLive.pipe(Layer.provide(Layer.mergeAll(config, deps)));
   return Effect.runPromise(
     Effect.gen(function* () {
       const publication = yield* ArtifactPublication;
@@ -126,6 +140,19 @@ describe("ArtifactPublication", () => {
     expect(added?.description).toBe(null);
     expect(written?.artifact).toBe(added);
     expect(written?.bytes).toEqual(new TextEncoder().encode(source));
+  });
+
+  it("returns relative URLs when PUBLIC_BASE_URL is omitted", async () => {
+    const request = publishRequest({
+      file: new Blob(["# x"], { type: "text/markdown" }),
+      fields: [["title", "Rel"]],
+      writeKey,
+    });
+
+    const response = await runPublication(request, Layer.mergeAll(catalogTest(), sourceTest()), configRelativeTest);
+
+    expect(response.artifactUrl).toBe(`/a/${response.slug}`);
+    expect(response.sourceUrl).toBe(`/source/${response.slug}`);
   });
 
   it("rejects requests without a write key as UnauthorizedError", async () => {

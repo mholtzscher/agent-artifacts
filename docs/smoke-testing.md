@@ -63,11 +63,11 @@ APP_PANES=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="
 for id in $APP_PANES; do zellij action close-pane -p terminal_$id 2>/dev/null || true; done
 ```
 
-Start the app with `alchemy dev` via `bun run dev:cloudflare` (there is no `bun run start` script). Alchemy loads `.env` automatically, so do not pass the write key inline:
+Start the app with `alchemy dev` via `bun run dev:cloudflare` (there is no `bun run start` script). Alchemy loads `.env` automatically, or you can pass the Worker write-key binding inline:
 
 ```sh
 zellij run --name artifact-app --cwd "$PWD" -- sh -lc \
-  'WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:1339 bun run dev:cloudflare'
+  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:1339 bun run dev:cloudflare'
 ```
 
 Alchemy prints the local Worker URL dynamically — it is not fixed to port 3000. Wait for the worker to report `updated`, then capture the URL from the pane output into `BASE_URL`:
@@ -142,7 +142,7 @@ EOF
 
 ## Manual fallback: Publish the artifact
 
-Source `.env` so the publish request uses the same `WRITE_KEY` alchemy loaded into the Worker:
+Use the same write key that `AGENT_ARTIFACTS_WRITE_KEY` loaded into the Worker:
 
 ```sh
 curl -sS -X POST http://localhost:1339/api/v1/artifacts \

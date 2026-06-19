@@ -225,6 +225,9 @@ const toArtifactPublicationError = (
 
 const pathsForSlug = (slug: Slug) => ({ artifactPath: `/a/${slug}`, sourcePath: `/source/${slug}` });
 
+const publicUrl = (path: string, baseUrl: URL | undefined) =>
+  baseUrl === undefined ? path : new URL(path, baseUrl).toString();
+
 export class ArtifactPublication extends Context.Service<
   ArtifactPublication,
   {
@@ -321,8 +324,8 @@ export const ArtifactPublicationLive = Layer.effect(
           slug: artifact.slug,
           title: artifact.title,
           sourceType: artifact.sourceType,
-          artifactUrl: `${config.publicBaseUrl}${paths.artifactPath}`,
-          sourceUrl: `${config.publicBaseUrl}${paths.sourcePath}`,
+          artifactUrl: publicUrl(paths.artifactPath, config.publicBaseUrl),
+          sourceUrl: publicUrl(paths.sourcePath, config.publicBaseUrl),
           createdAt: artifact.createdAt,
         });
       }),

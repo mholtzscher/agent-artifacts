@@ -58,7 +58,7 @@ export default Alchemy.Stack(
     const productionDomain = "artifacts.holtzscher.com";
     const isProduction = stage === "production";
 
-    const publicBaseUrl = isProduction ? `https://${productionDomain}` : (process.env.PUBLIC_BASE_URL ?? "");
+    const publicBaseUrl = isProduction ? `https://${productionDomain}` : process.env.PUBLIC_BASE_URL;
 
     const worker = yield* Cloudflare.Worker("worker", {
       name: `${resourcePrefix}-worker`,
@@ -92,8 +92,8 @@ export default Alchemy.Stack(
       env: {
         DB: database,
         SOURCES: sources,
-        PUBLIC_BASE_URL: publicBaseUrl,
-        AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("WRITE_KEY"),
+        ...(publicBaseUrl === undefined ? {} : { PUBLIC_BASE_URL: publicBaseUrl }),
+        AGENT_ARTIFACTS_WRITE_KEY: Config.redacted("AGENT_ARTIFACTS_WRITE_KEY"),
       },
     });
 
@@ -106,13 +106,13 @@ export default Alchemy.Stack(
     //
     // The seed is gated on `PREVIEW_DEPLOY` (set only by the deploy job) so
     // the cleanup-preview job — which still exports `PULL_REQUEST` and
-    // `WRITE_KEY` for the `GitHub.Comment` teardown path — does not register
+    // `AGENT_ARTIFACTS_WRITE_KEY` for the `GitHub.Comment` teardown path — does not register
     // the seed side effect during destroy. Alchemy's destroy already skips
     // action bodies (action deletions are pure state drops), but this keeps
     // teardown a pure cleanup path and avoids relying on that internals.
     if (process.env.PULL_REQUEST) {
       const isDeploy = process.env.PREVIEW_DEPLOY === "true";
-      const writeKey = process.env.WRITE_KEY;
+      const writeKey = process.env.AGENT_ARTIFACTS_WRITE_KEY;
       if (isDeploy && writeKey) {
         // The Action takes `worker.url` as an Output input; alchemy resolves it
         // to the deployed worker URL and runs the seed after the worker is up.
@@ -124,7 +124,7 @@ export default Alchemy.Stack(
           sha: process.env.GITHUB_SHA ?? "unknown",
         });
       } else if (isDeploy) {
-        yield* Effect.logWarning("preview seed skipped: WRITE_KEY not set");
+        yield* Effect.logWarning("preview seed skipped: AGENT_ARTIFACTS_WRITE_KEY not set");
       }
 
       yield* GitHub.Comment("preview-comment", {

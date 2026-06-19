@@ -5,16 +5,18 @@ import { D1ArtifactCatalogLive } from "../artifact-catalog/d1/D1ArtifactCatalog.
 import { ArtifactPublicationLive } from "../artifact-publication/ArtifactPublication.js";
 import { R2ArtifactSourceLive } from "../artifact-source/r2/R2ArtifactSource.js";
 import { PublicArtifactAccessLive } from "../public-artifact-access/PublicArtifactAccess.js";
+import { AppConfigLive } from "./Config.js";
 import { AppApiLive } from "./Http.js";
 import {
-  CloudflareAppConfigLive,
   CloudflareBindingsLive,
+  CloudflareConfigProviderLive,
   CloudflareD1SqlLive,
   type CloudflareBindings,
 } from "./Bindings.js";
 
 const CloudflareCatalogLive = D1ArtifactCatalogLive.pipe(Layer.provide(CloudflareD1SqlLive));
-const CloudflareInfraLive = Layer.mergeAll(CloudflareAppConfigLive, CloudflareCatalogLive, R2ArtifactSourceLive);
+const RuntimeAppConfigLive = AppConfigLive.pipe(Layer.provide(CloudflareConfigProviderLive));
+const CloudflareInfraLive = Layer.mergeAll(RuntimeAppConfigLive, CloudflareCatalogLive, R2ArtifactSourceLive);
 
 const CloudflareLive = Layer.mergeAll(ArtifactPublicationLive, PublicArtifactAccessLive).pipe(
   Layer.provideMerge(CloudflareInfraLive),
