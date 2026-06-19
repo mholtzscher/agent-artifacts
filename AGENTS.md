@@ -16,8 +16,8 @@ in this codebase.
 
 ### Services and capabilities
 
-- Prefer `Effect.Service` for concise service definitions, unless existing local
-  conventions or compatibility constraints make `Context.Tag` clearer.
+- Prefer `Context.Service` for Effect v4 service definitions. Avoid `Context.Tag`
+  unless compatibility with older/local conventions requires it.
 - Model services around capabilities or runtime dependencies, not implementation
   details. Prefer names like `ArtifactCatalog`, `ArtifactSource`,
   `ArtifactPublication`, `PublicArtifactAccess`, `AppConfig`, and
