@@ -7,6 +7,26 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { seedPreviewArtifacts } from "./scripts/seed-preview.js";
 
+// Deploy-time side effect that seeds sample artifacts into a PR preview
+// deployment through the public publish API. Defined as an alchemy Action so
+// the engine resolves `worker.url` (an Output) against the dependency graph
+// and runs the body during apply, after the worker is provisioned. Including
+// `sha` in the input makes the action re-run on every push so a failed first
+// seed (e.g. worker not yet serving) is retried; `seedPreviewArtifacts` is
+// itself idempotent and skips when the catalog already has artifacts.
+const SeedPreviewArtifacts = Alchemy.Action(
+  "SeedPreviewArtifacts",
+  (input: { baseUrl: string | undefined; writeKey: string; sha: string }) => {
+    // Bind to a const so the `=== undefined` narrowing persists into the
+    // `Effect.promise` thunk (TS does not narrow property accesses across
+    // function closures).
+    const baseUrl = input.baseUrl;
+    return baseUrl === undefined
+      ? Effect.logWarning("preview seed skipped: worker url unresolved")
+      : Effect.promise(() => seedPreviewArtifacts({ baseUrl, writeKey: input.writeKey }));
+  },
+);
+
 export default Alchemy.Stack(
   "agent-artifacts",
   {
@@ -86,17 +106,15 @@ export default Alchemy.Stack(
     if (process.env.PULL_REQUEST) {
       const writeKey = process.env.WRITE_KEY;
       if (writeKey) {
-        // `worker.url` is an alchemy Output expression, not a resolved string,
-        // so the seed side effect must run through `Output.mapEffect` to get
-        // the resolved URL at evaluation time. The seed is best-effort and
-        // swallows its own errors, so a failed seed never breaks the deploy.
-        yield* worker.url.pipe(
-          Output.mapEffect((url) =>
-            url === undefined
-              ? Effect.logWarning("preview seed skipped: worker url unresolved")
-              : Effect.promise(() => seedPreviewArtifacts({ baseUrl: url, writeKey })),
-          ),
-        );
+        // The Action takes `worker.url` as an Output input; alchemy resolves it
+        // to the deployed worker URL and runs the seed after the worker is up.
+        // The seed is best-effort and swallows its own errors, so a failed seed
+        // never breaks the deploy.
+        yield* SeedPreviewArtifacts({
+          baseUrl: worker.url,
+          writeKey,
+          sha: process.env.GITHUB_SHA ?? "unknown",
+        });
       } else {
         yield* Effect.logWarning("preview seed skipped: WRITE_KEY not set");
       }
