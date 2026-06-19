@@ -103,9 +103,17 @@ export default Alchemy.Stack(
     // because the logical ID stays the same. Seeding is idempotent: it skips
     // when the catalog already has artifacts, so redeploys of the same PR do
     // not create duplicates.
+    //
+    // The seed is gated on `PREVIEW_DEPLOY` (set only by the deploy job) so
+    // the cleanup-preview job — which still exports `PULL_REQUEST` and
+    // `WRITE_KEY` for the `GitHub.Comment` teardown path — does not register
+    // the seed side effect during destroy. Alchemy's destroy already skips
+    // action bodies (action deletions are pure state drops), but this keeps
+    // teardown a pure cleanup path and avoids relying on that internals.
     if (process.env.PULL_REQUEST) {
+      const isDeploy = process.env.PREVIEW_DEPLOY === "true";
       const writeKey = process.env.WRITE_KEY;
-      if (writeKey) {
+      if (isDeploy && writeKey) {
         // The Action takes `worker.url` as an Output input; alchemy resolves it
         // to the deployed worker URL and runs the seed after the worker is up.
         // The seed is best-effort and swallows its own errors, so a failed seed
@@ -115,7 +123,7 @@ export default Alchemy.Stack(
           writeKey,
           sha: process.env.GITHUB_SHA ?? "unknown",
         });
-      } else {
+      } else if (isDeploy) {
         yield* Effect.logWarning("preview seed skipped: WRITE_KEY not set");
       }
 
