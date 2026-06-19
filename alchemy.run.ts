@@ -5,6 +5,27 @@ import * as Output from "alchemy/Output";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { seedPreviewArtifacts } from "./scripts/seed-preview.js";
+
+// Deploy-time side effect that seeds sample artifacts into a PR preview
+// deployment through the public publish API. Defined as an alchemy Action so
+// the engine resolves `worker.url` (an Output) against the dependency graph
+// and runs the body during apply, after the worker is provisioned. Including
+// `sha` in the input makes the action re-run on every push so a failed first
+// seed (e.g. worker not yet serving) is retried; `seedPreviewArtifacts` is
+// itself idempotent and skips when the catalog already has artifacts.
+const SeedPreviewArtifacts = Alchemy.Action(
+  "SeedPreviewArtifacts",
+  (input: { baseUrl: string | undefined; writeKey: string; sha: string }) => {
+    // Bind to a const so the `=== undefined` narrowing persists into the
+    // `Effect.promise` thunk (TS does not narrow property accesses across
+    // function closures).
+    const baseUrl = input.baseUrl;
+    return baseUrl === undefined
+      ? Effect.logWarning("preview seed skipped: worker url unresolved")
+      : Effect.promise(() => seedPreviewArtifacts({ baseUrl, writeKey: input.writeKey }));
+  },
+);
 
 export default Alchemy.Stack(
   "agent-artifacts",
@@ -76,10 +97,36 @@ export default Alchemy.Stack(
       },
     });
 
-    // Post a preview URL comment on PR deployments.
-    // The comment is created on the first deploy and auto-updates on
-    // subsequent pushes because the logical ID stays the same.
+    // Post a preview URL comment on PR deployments, and seed a couple of
+    // sample artifacts so reviewers see a non-empty feed. The comment is
+    // created on the first deploy and auto-updates on subsequent pushes
+    // because the logical ID stays the same. Seeding is idempotent: it skips
+    // when the catalog already has artifacts, so redeploys of the same PR do
+    // not create duplicates.
+    //
+    // The seed is gated on `PREVIEW_DEPLOY` (set only by the deploy job) so
+    // the cleanup-preview job — which still exports `PULL_REQUEST` and
+    // `WRITE_KEY` for the `GitHub.Comment` teardown path — does not register
+    // the seed side effect during destroy. Alchemy's destroy already skips
+    // action bodies (action deletions are pure state drops), but this keeps
+    // teardown a pure cleanup path and avoids relying on that internals.
     if (process.env.PULL_REQUEST) {
+      const isDeploy = process.env.PREVIEW_DEPLOY === "true";
+      const writeKey = process.env.WRITE_KEY;
+      if (isDeploy && writeKey) {
+        // The Action takes `worker.url` as an Output input; alchemy resolves it
+        // to the deployed worker URL and runs the seed after the worker is up.
+        // The seed is best-effort and swallows its own errors, so a failed seed
+        // never breaks the deploy.
+        yield* SeedPreviewArtifacts({
+          baseUrl: worker.url,
+          writeKey,
+          sha: process.env.GITHUB_SHA ?? "unknown",
+        });
+      } else if (isDeploy) {
+        yield* Effect.logWarning("preview seed skipped: WRITE_KEY not set");
+      }
+
       yield* GitHub.Comment("preview-comment", {
         owner: process.env.GITHUB_REPOSITORY_OWNER!,
         repository: process.env.GITHUB_REPOSITORY_NAME!,

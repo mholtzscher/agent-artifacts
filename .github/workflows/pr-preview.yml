@@ -30,6 +30,10 @@ jobs:
       - name: Deploy Preview
         run: bun run deploy --yes --stage pr-${{ github.event.pull_request.number }}
         env:
+          # Marks this as the deploy ("up") phase so the stack's preview seed
+          # side effect runs. The cleanup-preview job deliberately omits this so
+          # teardown stays a pure cleanup path and never registers/runs the seed.
+          PREVIEW_DEPLOY: "true"
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
