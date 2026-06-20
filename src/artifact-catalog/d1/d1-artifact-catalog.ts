@@ -1,3 +1,4 @@
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -30,10 +31,12 @@ export const D1ArtifactCatalogLive = Layer.effect(
 
       findBySlug: Effect.fn("D1ArtifactCatalog.findBySlug")(function* (slug: Slug) {
         const rows = yield* sql<ArtifactRow>`select * from artifacts where slug = ${slug} limit 1`;
-        const row = rows[0];
-        return row === undefined
-          ? Option.none()
-          : Option.some(yield* Schema.decodeUnknownEffect(ArtifactRowSchema)(row));
+        return yield* Array.head(rows).pipe(
+          Option.match({
+            onNone: () => Effect.succeedNone,
+            onSome: (row) => Schema.decodeUnknownEffect(ArtifactRowSchema)(row).pipe(Effect.map(Option.some)),
+          }),
+        );
       }),
 
       slugExists: Effect.fn("D1ArtifactCatalog.slugExists")(function* (slug: Slug) {
