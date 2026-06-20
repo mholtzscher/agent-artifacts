@@ -30,6 +30,14 @@ in this codebase.
   is no meaningful service API, prefer a named `Effect` or `Layer.effectDiscard`
   and compose/run it at the application edge.
 
+### Effect and collection idioms
+
+- Prefer Effect data helpers over manual nullable/undefined branching when they
+  make intent clearer. For example, use `Array.head(rows)` with `Option.match`
+  for optional query results instead of reading `rows[0]` and checking for
+  `undefined`, while preserving decode/validation failures in the Effect error
+  channel.
+
 ### Schemas and boundaries
 
 - Use `Schema` for domain objects and boundary objects: persisted rows, HTTP
