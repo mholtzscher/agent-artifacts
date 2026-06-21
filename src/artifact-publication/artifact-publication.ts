@@ -231,105 +231,105 @@ const publicUrl = (path: string, baseUrl: URL | undefined) =>
 export class ArtifactPublication extends Context.Service<
   ArtifactPublication,
   {
-    readonly publish: Effect.Effect<PublishResponse, ArtifactPublicationError, HttpServerRequest.HttpServerRequest>;
+    readonly publish: Effect.Effect<
+      PublishResponse,
+      ArtifactPublicationError,
+      HttpServerRequest.HttpServerRequest | AppConfig | ArtifactCatalog | ArtifactSource
+    >;
   }
 >()("AgentArtifacts/ArtifactPublication") {}
 
-export const ArtifactPublicationLive = Layer.effect(
+const requireWriteKey = Effect.gen(function* () {
+  const config = yield* AppConfig;
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  const provided = request.headers["x-write-key"];
+  if (provided === undefined) {
+    yield* Effect.logWarning("publish rejected: missing write key");
+    return yield* Effect.fail(new UnauthorizedError({ message: "Missing write key" }));
+  }
+  if (provided !== Redacted.value(config.writeKey)) {
+    yield* Effect.logWarning("publish rejected: invalid write key");
+    return yield* Effect.fail(new ForbiddenError({ message: "Invalid write key" }));
+  }
+});
+
+export const ArtifactPublicationLive = Layer.succeed(
   ArtifactPublication,
-  Effect.gen(function* () {
-    const config = yield* AppConfig;
-    const catalog = yield* ArtifactCatalog;
-    const source = yield* ArtifactSource;
-
-    const requireWriteKey = Effect.gen(function* () {
-      const request = yield* HttpServerRequest.HttpServerRequest;
-      const provided = request.headers["x-write-key"];
-      if (provided === undefined) {
-        yield* Effect.logWarning("publish rejected: missing write key");
-        return yield* Effect.fail(new UnauthorizedError({ message: "Missing write key" }));
+  ArtifactPublication.of({
+    publish: Effect.gen(function* () {
+      yield* requireWriteKey;
+      const config = yield* AppConfig;
+      const catalog = yield* ArtifactCatalog;
+      const source = yield* ArtifactSource;
+      const form = yield* readPublishMultipartForm;
+      const fields = yield* decodePublishFormFields(form.fields);
+      const file = form.file;
+      if (file === undefined) {
+        yield* Effect.logWarning("publish rejected: missing file");
+        return yield* Effect.fail(new BadRequestError({ message: "Missing file" }));
       }
-      if (provided !== Redacted.value(config.writeKey)) {
-        yield* Effect.logWarning("publish rejected: invalid write key");
-        return yield* Effect.fail(new ForbiddenError({ message: "Invalid write key" }));
-      }
-    });
+      yield* Effect.logInfo("publish request accepted");
 
-    return ArtifactPublication.of({
-      publish: Effect.gen(function* () {
-        yield* requireWriteKey;
-        const form = yield* readPublishMultipartForm;
-        const fields = yield* decodePublishFormFields(form.fields);
-        const file = form.file;
-        if (file === undefined) {
-          yield* Effect.logWarning("publish rejected: missing file");
-          return yield* Effect.fail(new BadRequestError({ message: "Missing file" }));
-        }
-        yield* Effect.logInfo("publish request accepted");
+      const sourceBytes = yield* file.contentEffect.pipe(
+        Effect.mapError(() => new BadRequestError({ message: "Invalid multipart body" })),
+      );
+      const sourceType = yield* Effect.fromResult(detectSourceType(file.name, file.contentType));
+      const id = makeArtifactId();
+      const title = inferTitle(file.name, fields.title);
+      const slug = yield* makeUniqueSlug(title, catalog.slugExists).pipe(Effect.mapError(toArtifactPublicationError));
+      const createdAt = DateTime.formatIso(yield* DateTime.now);
+      const artifact = Artifact.make({
+        id,
+        slug,
+        title,
+        description: fields.description,
+        sourceType,
+        sourceFilename: file.name,
+        sha256: yield* sha256Hex(sourceBytes),
+        sizeBytes: sourceBytes.byteLength,
+        project: fields.project,
+        repoFullName: fields.repoFullName,
+        branch: fields.branch,
+        commitSha: fields.commitSha,
+        dirty: fields.dirty,
+        agent: fields.agent,
+        generator: fields.generator,
+        state: "active",
+        createdAt,
+        updatedAt: createdAt,
+      });
 
-        const sourceBytes = yield* file.contentEffect.pipe(
-          Effect.mapError(() => new BadRequestError({ message: "Invalid multipart body" })),
-        );
-        const sourceType = yield* Effect.fromResult(detectSourceType(file.name, file.contentType));
-        const id = makeArtifactId();
-        const title = inferTitle(file.name, fields.title);
-        const slug = yield* makeUniqueSlug(title, catalog.slugExists).pipe(Effect.mapError(toArtifactPublicationError));
-        const createdAt = DateTime.formatIso(yield* DateTime.now);
-        const artifact = Artifact.make({
-          id,
-          slug,
-          title,
-          description: fields.description,
-          sourceType,
-          sourceFilename: file.name,
-          sha256: yield* sha256Hex(sourceBytes),
-          sizeBytes: sourceBytes.byteLength,
-          project: fields.project,
-          repoFullName: fields.repoFullName,
-          branch: fields.branch,
-          commitSha: fields.commitSha,
-          dirty: fields.dirty,
-          agent: fields.agent,
-          generator: fields.generator,
-          state: "active",
-          createdAt,
-          updatedAt: createdAt,
-        });
+      yield* Effect.gen(function* () {
+        yield* source.write(artifact, sourceBytes);
+        yield* catalog
+          .add(artifact)
+          .pipe(
+            Effect.tapError(() =>
+              Effect.logError("artifact insert failed; removing source").pipe(Effect.andThen(source.remove(artifact))),
+            ),
+          );
+      }).pipe(Effect.mapError(toArtifactPublicationError), Effect.annotateLogs({ artifactId: id, slug, sourceType }));
 
-        yield* Effect.gen(function* () {
-          yield* source.write(artifact, sourceBytes);
-          yield* catalog
-            .add(artifact)
-            .pipe(
-              Effect.tapError(() =>
-                Effect.logError("artifact insert failed; removing source").pipe(
-                  Effect.andThen(source.remove(artifact)),
-                ),
-              ),
-            );
-        }).pipe(Effect.mapError(toArtifactPublicationError), Effect.annotateLogs({ artifactId: id, slug, sourceType }));
-
-        yield* Effect.logInfo("publish completed").pipe(
-          Effect.annotateLogs({
-            artifactId: artifact.id,
-            slug: artifact.slug,
-            sourceType,
-            sizeBytes: artifact.sizeBytes,
-          }),
-        );
-
-        const paths = pathsForSlug(artifact.slug);
-        return PublishResponse.make({
-          id: artifact.id,
+      yield* Effect.logInfo("publish completed").pipe(
+        Effect.annotateLogs({
+          artifactId: artifact.id,
           slug: artifact.slug,
-          title: artifact.title,
-          sourceType: artifact.sourceType,
-          artifactUrl: publicUrl(paths.artifactPath, config.publicBaseUrl),
-          sourceUrl: publicUrl(paths.sourcePath, config.publicBaseUrl),
-          createdAt: artifact.createdAt,
-        });
-      }),
-    });
+          sourceType,
+          sizeBytes: artifact.sizeBytes,
+        }),
+      );
+
+      const paths = pathsForSlug(artifact.slug);
+      return PublishResponse.make({
+        id: artifact.id,
+        slug: artifact.slug,
+        title: artifact.title,
+        sourceType: artifact.sourceType,
+        artifactUrl: publicUrl(paths.artifactPath, config.publicBaseUrl),
+        sourceUrl: publicUrl(paths.sourcePath, config.publicBaseUrl),
+        createdAt: artifact.createdAt,
+      });
+    }),
   }),
 );
 

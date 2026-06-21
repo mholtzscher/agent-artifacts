@@ -28,7 +28,6 @@
     "destroy": "alchemy destroy"
   },
   "dependencies": {
-    "@effect/sql-d1": "4.0.0-beta.83",
     "alchemy": "^2.0.0-beta.55",
     "effect": "4.0.0-beta.83",
     "markdown-it": "^14.2.0"

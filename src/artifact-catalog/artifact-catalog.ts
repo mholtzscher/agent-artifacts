@@ -3,8 +3,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaGetter from "effect/SchemaGetter";
-import type { SqlError } from "effect/unstable/sql";
-
 import { Artifact, ArtifactId, ArtifactState, Slug, SourceType } from "../domain/artifact.js";
 
 const ArtifactRowStruct = Schema.Struct({
@@ -83,7 +81,7 @@ export class ArtifactCatalogBackendError extends Schema.TaggedErrorClass<Artifac
   { httpApiStatus: 500 },
 ) {}
 
-export type ArtifactCatalogError = SqlError.SqlError | Schema.SchemaError | ArtifactCatalogBackendError;
+export type ArtifactCatalogError = Schema.SchemaError | ArtifactCatalogBackendError;
 
 export class ArtifactCatalog extends Context.Service<
   ArtifactCatalog,

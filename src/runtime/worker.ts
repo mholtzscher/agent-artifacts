@@ -1,52 +1,44 @@
+import * as Context from "effect/Context";
 import * as Layer from "effect/Layer";
+import * as Redacted from "effect/Redacted";
 import { HttpRouter } from "effect/unstable/http";
 
-import { D1ArtifactCatalogLive } from "../artifact-catalog/d1/d1-artifact-catalog.js";
+import { ArtifactCatalog } from "../artifact-catalog/artifact-catalog.js";
+import { makeD1ArtifactCatalog } from "../artifact-catalog/d1/d1-artifact-catalog.js";
 import { ArtifactPublicationLive } from "../artifact-publication/artifact-publication.js";
-import { R2ArtifactSourceLive } from "../artifact-source/r2/r2-artifact-source.js";
+import { ArtifactSource } from "../artifact-source/artifact-source.js";
+import { makeR2ArtifactSource } from "../artifact-source/r2/r2-artifact-source.js";
 import { PublicArtifactAccessLive } from "../public-artifact-access/public-artifact-access.js";
-import { AppConfigLive } from "./config.js";
+import { AppConfig } from "./config.js";
 import { AppHttpLive } from "./http.js";
-import {
-  CloudflareBindingsLive,
-  CloudflareConfigProviderLive,
-  CloudflareD1SqlLive,
-  type CloudflareEnv,
-} from "./bindings.js";
 
-const CloudflareArtifactCatalogLive = D1ArtifactCatalogLive.pipe(Layer.provide(CloudflareD1SqlLive));
-const CloudflareAppConfigLive = AppConfigLive.pipe(Layer.provide(CloudflareConfigProviderLive));
-const CloudflareInfraLive = Layer.mergeAll(
-  CloudflareAppConfigLive,
-  CloudflareArtifactCatalogLive,
-  R2ArtifactSourceLive,
-);
+export interface CloudflareEnv {
+  readonly DB: D1Database;
+  readonly SOURCES: R2Bucket;
+  readonly PUBLIC_BASE_URL?: string | undefined;
+  readonly AGENT_ARTIFACTS_WRITE_KEY: string;
+}
 
-const CloudflareServicesLive = Layer.mergeAll(ArtifactPublicationLive, PublicArtifactAccessLive).pipe(
-  Layer.provideMerge(CloudflareInfraLive),
-);
+const makeAppConfig = (env: CloudflareEnv) =>
+  AppConfig.of({
+    publicBaseUrl: env.PUBLIC_BASE_URL === undefined ? undefined : new URL(env.PUBLIC_BASE_URL),
+    writeKey: Redacted.make(env.AGENT_ARTIFACTS_WRITE_KEY),
+  });
 
-const buildCloudflareApp = (env: CloudflareEnv) =>
-  AppHttpLive.pipe(Layer.provide(CloudflareServicesLive), Layer.provide(CloudflareBindingsLive(env)));
+const makeCloudflareContext = (env: CloudflareEnv) =>
+  Context.make(AppConfig, makeAppConfig(env)).pipe(
+    Context.add(ArtifactCatalog, makeD1ArtifactCatalog(env.DB)),
+    Context.add(ArtifactSource, makeR2ArtifactSource(env.SOURCES)),
+  );
 
-type WebHandler = (request: Request) => Promise<Response>;
+const AppServicesLive = Layer.mergeAll(ArtifactPublicationLive, PublicArtifactAccessLive);
 
-const handlers = new WeakMap<CloudflareEnv, WebHandler>();
+const AppLive = AppHttpLive.pipe(Layer.provide(AppServicesLive));
 
-const handlerForCloudflareEnv = (env: CloudflareEnv): WebHandler => {
-  const existing = handlers.get(env);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const { handler } = HttpRouter.toWebHandler(buildCloudflareApp(env) as never);
-  const webHandler: WebHandler = (request) => handler(request as never, undefined as never);
-  handlers.set(env, webHandler);
-  return webHandler;
-};
+const { handler } = HttpRouter.toWebHandler(AppLive as never);
 
 export default {
   fetch(request: Request, env: CloudflareEnv): Promise<Response> {
-    return handlerForCloudflareEnv(env)(request);
+    return handler(request, makeCloudflareContext(env));
   },
 } satisfies ExportedHandler<CloudflareEnv>;

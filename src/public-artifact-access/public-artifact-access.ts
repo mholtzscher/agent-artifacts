@@ -30,38 +30,43 @@ const toServerError = () => new ServerError({ message: "Internal server error" }
 export class PublicArtifactAccess extends Context.Service<
   PublicArtifactAccess,
   {
-    readonly recentFeed: Effect.Effect<PublicArtifactFeedResponseType, ServerError>;
-    readonly homePage: Effect.Effect<string, ServerError>;
-    readonly renderedView: (slug: Slug) => Effect.Effect<string, PublicArtifactAccessError>;
-    readonly source: (slug: Slug) => Effect.Effect<PublicArtifactSource, PublicArtifactAccessError>;
+    readonly recentFeed: Effect.Effect<PublicArtifactFeedResponseType, ServerError, ArtifactCatalog>;
+    readonly homePage: Effect.Effect<string, ServerError, ArtifactCatalog>;
+    readonly renderedView: (
+      slug: Slug,
+    ) => Effect.Effect<string, PublicArtifactAccessError, ArtifactCatalog | ArtifactSource>;
+    readonly source: (
+      slug: Slug,
+    ) => Effect.Effect<PublicArtifactSource, PublicArtifactAccessError, ArtifactCatalog | ArtifactSource>;
   }
 >()("AgentArtifacts/PublicArtifactAccess") {}
 
-export const PublicArtifactAccessLive = Layer.effect(
+const recentFeed = ArtifactCatalog.use((catalog) =>
+  catalog.listRecent(recentArtifactFeedLimit).pipe(
+    Effect.map((artifacts) => ({ artifacts: artifacts.map(publicArtifactItem) })),
+    Effect.mapError(toServerError),
+  ),
+);
+
+export const PublicArtifactAccessLive = Layer.succeed(
   PublicArtifactAccess,
-  Effect.gen(function* () {
-    const catalog = yield* ArtifactCatalog;
-    const artifactSource = yield* ArtifactSource;
+  PublicArtifactAccess.of({
+    recentFeed,
+    homePage: recentFeed.pipe(Effect.map((response) => renderFeedPage(response.artifacts))),
 
-    const recentFeed = catalog.listRecent(recentArtifactFeedLimit).pipe(
-      Effect.map((artifacts) => ({ artifacts: artifacts.map(publicArtifactItem) })),
-      Effect.mapError(toServerError),
-    );
+    renderedView: Effect.fn("PublicArtifactAccess.renderedView")(function* (slug: Slug) {
+      const catalog = yield* ArtifactCatalog;
+      const artifactSource = yield* ArtifactSource;
+      const { artifact, bytes } = yield* loadActiveArtifactSource({ catalog, artifactSource, slug });
+      return renderArtifactPage(artifact, new TextDecoder().decode(bytes));
+    }),
 
-    return PublicArtifactAccess.of({
-      recentFeed,
-      homePage: recentFeed.pipe(Effect.map((response) => renderFeedPage(response.artifacts))),
-
-      renderedView: Effect.fn("PublicArtifactAccess.renderedView")(function* (slug: Slug) {
-        const { artifact, bytes } = yield* loadActiveArtifactSource({ catalog, artifactSource, slug });
-        return renderArtifactPage(artifact, new TextDecoder().decode(bytes));
-      }),
-
-      source: Effect.fn("PublicArtifactAccess.source")(function* (slug: Slug) {
-        const { artifact, bytes } = yield* loadActiveArtifactSource({ catalog, artifactSource, slug });
-        return { bytes, contentType: sourceContentType(artifact) };
-      }),
-    });
+    source: Effect.fn("PublicArtifactAccess.source")(function* (slug: Slug) {
+      const catalog = yield* ArtifactCatalog;
+      const artifactSource = yield* ArtifactSource;
+      const { artifact, bytes } = yield* loadActiveArtifactSource({ catalog, artifactSource, slug });
+      return { bytes, contentType: sourceContentType(artifact) };
+    }),
   }),
 );
 

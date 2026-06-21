@@ -87,8 +87,8 @@ const sourceProgram = (slug: Slug) =>
 
 const run = <A, E>(
   deps: Layer.Layer<ArtifactCatalog | ArtifactSource, never, never>,
-  program: Effect.Effect<A, E, PublicArtifactAccess>,
-) => Effect.runPromise(program.pipe(Effect.provide(PublicArtifactAccessLive.pipe(Layer.provide(deps)))));
+  program: Effect.Effect<A, E, PublicArtifactAccess | ArtifactCatalog | ArtifactSource>,
+) => Effect.runPromise(program.pipe(Effect.provide(Layer.mergeAll(PublicArtifactAccessLive, deps))));
 
 describe("PublicArtifactAccess", () => {
   describe("renderedView", () => {

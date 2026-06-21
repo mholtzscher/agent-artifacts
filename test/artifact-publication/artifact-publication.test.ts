@@ -82,15 +82,16 @@ const runPublication = (
   request: Request,
   deps: Layer.Layer<ArtifactCatalog | ArtifactSource> = Layer.mergeAll(catalogTest(), sourceTest()),
   config: Layer.Layer<AppConfig, ConfigError> = configTest,
-) => {
-  const live = ArtifactPublicationLive.pipe(Layer.provide(Layer.mergeAll(config, deps)));
-  return Effect.runPromise(
+) =>
+  Effect.runPromise(
     Effect.gen(function* () {
       const publication = yield* ArtifactPublication;
       return yield* publication.publish;
-    }).pipe(Effect.provide(Layer.mergeAll(live, httpReqTest(request))), Random.withSeed(0)),
+    }).pipe(
+      Effect.provide(Layer.mergeAll(ArtifactPublicationLive, config, deps, httpReqTest(request))),
+      Random.withSeed(0),
+    ),
   );
-};
 
 describe("ArtifactPublication", () => {
   it("publishes through the HTTP request seam", async () => {
