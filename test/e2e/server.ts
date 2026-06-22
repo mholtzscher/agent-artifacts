@@ -2,8 +2,7 @@ import { Miniflare } from "miniflare";
 import { createServer } from "node:http";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import worker from "../../src/runtime/worker.js";
-import type { CloudflareEnv } from "../../src/runtime/bindings.js";
+import worker, { type CloudflareEnv } from "../../src/runtime/worker.js";
 
 const port = Number(process.env.PORT ?? "1339");
 const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `http://localhost:${port}`;

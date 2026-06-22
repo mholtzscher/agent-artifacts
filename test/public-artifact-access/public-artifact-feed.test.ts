@@ -67,7 +67,7 @@ const runFeed = (catalog: Layer.Layer<ArtifactCatalog>) =>
     Effect.gen(function* () {
       const access = yield* PublicArtifactAccess;
       return yield* access.recentFeed;
-    }).pipe(Effect.provide(PublicArtifactAccessLive.pipe(Layer.provide(Layer.mergeAll(catalog, sourceTest))))),
+    }).pipe(Effect.provide(Layer.mergeAll(PublicArtifactAccessLive, catalog, sourceTest))),
   );
 
 const runHomePage = (catalog: Layer.Layer<ArtifactCatalog>) =>
@@ -75,7 +75,7 @@ const runHomePage = (catalog: Layer.Layer<ArtifactCatalog>) =>
     Effect.gen(function* () {
       const access = yield* PublicArtifactAccess;
       return yield* access.homePage;
-    }).pipe(Effect.provide(PublicArtifactAccessLive.pipe(Layer.provide(Layer.mergeAll(catalog, sourceTest))))),
+    }).pipe(Effect.provide(Layer.mergeAll(PublicArtifactAccessLive, catalog, sourceTest))),
   );
 
 describe("PublicArtifactAccess recent feed", () => {
