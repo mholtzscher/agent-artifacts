@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
 import { ArtifactSource } from "../../src/artifact-source/artifact-source.js";

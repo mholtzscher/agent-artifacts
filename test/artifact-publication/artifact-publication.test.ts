@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Random from "effect/Random";
 import { HttpServerRequest } from "effect/unstable/http";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { Artifact, type Slug } from "../../src/domain/artifact.js";
 import { ArtifactPublication, ArtifactPublicationLive } from "../../src/artifact-publication/artifact-publication.js";

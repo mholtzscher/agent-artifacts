@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
 import { ArtifactRowSchema, type ArtifactRow } from "../../src/artifact-catalog/artifact-catalog.js";

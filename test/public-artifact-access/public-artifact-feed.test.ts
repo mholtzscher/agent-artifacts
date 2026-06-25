@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { Artifact, type ArtifactId, type Slug } from "../../src/domain/artifact.js";
 import { ArtifactCatalog, ArtifactCatalogBackendError } from "../../src/artifact-catalog/artifact-catalog.js";

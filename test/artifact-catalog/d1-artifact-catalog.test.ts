@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Miniflare } from "miniflare";
 import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { ArtifactCatalog } from "../../src/artifact-catalog/artifact-catalog.js";
 import { D1ArtifactCatalogLive } from "../../src/artifact-catalog/d1/d1-artifact-catalog.js";

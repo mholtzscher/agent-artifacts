@@ -2,7 +2,7 @@
 // through the public publish API. Skipped when the catalog already has
 // artifacts, so redeploys of the same PR stage do not create duplicates.
 //
-// Usage as a module: import { seedPreviewArtifacts } from "./scripts/seed-preview.js"
+// Usage as a module: import { seedPreviewArtifacts } from "./scripts/seed-preview.ts"
 // Usage as a script:  bun run scripts/seed-preview.ts (reads BASE_URL and WRITE_KEY from env)
 
 const PUBLISH_PATH = "/api/v1/artifacts";

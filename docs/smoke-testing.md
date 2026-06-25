@@ -8,10 +8,10 @@ browser, and the rendered view stays in the intended app-shell layout.
 Run the default automated smoke check with:
 
 ```sh
-bun run test:e2e
+vp run test:e2e
 ```
 
-`bun run agent-validate` also runs this E2E suite as its final step. The manual
+`vp run agent-validate` also runs this E2E suite as its final step. The manual
 `agent-browser` flow below is fallback diagnostics for investigating failures or
 collecting extra visual evidence.
 
@@ -35,18 +35,18 @@ A smoke test passes when:
 
 - Run commands from the repository root.
 - Use write key `ap_test` for local smoke testing.
-- Prefer `bun run test:e2e` for automated smoke verification.
+- Prefer `vp run test:e2e` for automated smoke verification.
 - Use the Zellij/`agent-browser` steps below only as fallback diagnostics.
 - Make sure dependencies are installed with Bun before starting the app:
 
 ```sh
-bun install
+vp install
 ```
 
 ## Automated smoke check
 
 ```sh
-bun run test:e2e
+vp run test:e2e
 ```
 
 The Playwright suite starts the local app, validates API success/error behavior,
@@ -63,11 +63,11 @@ APP_PANES=$(zellij action list-panes -j -c -s -t | jq -r '.[] | select(.title=="
 for id in $APP_PANES; do zellij action close-pane -p terminal_$id 2>/dev/null || true; done
 ```
 
-Start the app with `alchemy dev` via `bun run dev:cloudflare` (there is no `bun run start` script). Alchemy loads `.env` automatically, or you can pass the Worker write-key binding inline:
+Start the app with `alchemy dev` via `vp run dev:cloudflare` (there is no start script). Alchemy loads `.env` automatically, or you can pass the Worker write-key binding inline:
 
 ```sh
 zellij run --name artifact-app --cwd "$PWD" -- sh -lc \
-  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:1339 bun run dev:cloudflare'
+  'AGENT_ARTIFACTS_WRITE_KEY=ap_test PUBLIC_BASE_URL=http://localhost:1339 vp run dev:cloudflare'
 ```
 
 Alchemy prints the local Worker URL dynamically — it is not fixed to port 3000. Wait for the worker to report `updated`, then capture the URL from the pane output into `BASE_URL`:

@@ -5,7 +5,7 @@ import * as Output from "alchemy/Output";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { seedPreviewArtifacts } from "./scripts/seed-preview.js";
+import { seedPreviewArtifacts } from "./scripts/seed-preview.ts";
 
 // Deploy-time side effect that seeds sample artifacts into a PR preview
 // deployment through the public publish API. Defined as an alchemy Action so
