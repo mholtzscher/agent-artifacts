@@ -4,6 +4,7 @@
     "exactOptionalPropertyTypes": true,
     "moduleDetection": "force",
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "moduleResolution": "NodeNext",

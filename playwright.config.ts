@@ -17,7 +17,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: `WRITE_KEY=ap_test PUBLIC_BASE_URL=${baseURL} PORT=${port} bun run dev:e2e`,
+    command: `WRITE_KEY=ap_test PUBLIC_BASE_URL=${baseURL} PORT=${port} vp run dev:e2e`,
     url: `${baseURL}/api/v1/artifacts`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

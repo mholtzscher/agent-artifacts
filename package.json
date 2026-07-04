@@ -10,22 +10,16 @@
   "type": "module",
   "scripts": {
     "agent-validate": "bash scripts/agent-validate.sh",
-    "check": "tsc -b tsconfig.json",
-    "lint": "oxlint --type-aware src test",
-    "lint-fix": "bun run lint --fix",
     "dev:cloudflare": "alchemy dev --stage local alchemy.run.ts",
     "dev:e2e": "bun test/e2e/server.ts",
     "deploy:staging": "alchemy deploy --stage staging alchemy.run.ts",
     "deploy:production": "alchemy deploy --stage production alchemy.run.ts",
-    "test": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "coverage": "vitest --coverage",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
     "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy"
+    "destroy": "alchemy destroy",
+    "prepare": "vp config"
   },
   "dependencies": {
     "alchemy": "^2.0.0-beta.55",
@@ -42,11 +36,8 @@
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.9.2",
     "miniflare": "^4.20260616.0",
-    "oxfmt": "^0.54.0",
-    "oxlint": "^1.69.0",
-    "oxlint-tsgolint": "^0.23.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vite-plus": "latest"
   },
   "packageManager": "bun@1.3.13"
 }

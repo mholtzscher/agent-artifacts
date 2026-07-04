@@ -17,16 +17,16 @@ Protected writes:
 
 ## Runtime
 
-Agent Artifacts targets Cloudflare Workers only. Metadata is stored in D1 and immutable source files are stored in R2. Bun is used as the package manager and test runner, but there is no supported Bun HTTP/SQLite/filesystem application runner.
+Agent Artifacts targets Cloudflare Workers only. Metadata is stored in D1 and immutable source files are stored in R2. Vite+ is used for package-manager, check, and test workflows; there is no supported Bun HTTP/SQLite/filesystem application runner.
 
 ## Local Cloudflare-style runtime
 
 Alchemy local dev uses Cloudflare-style bindings backed by local D1/R2 where supported by Alchemy/Miniflare.
 
 ```sh
-bun install
+vp install
 AGENT_ARTIFACTS_WRITE_KEY=ap_test \
-bun run dev:cloudflare
+vp run dev:cloudflare
 ```
 
 Alchemy prints the local Worker URL, typically `http://localhost:1337/`.
@@ -66,7 +66,7 @@ Deploy staging:
 
 ```sh
 AGENT_ARTIFACTS_WRITE_KEY=ap_staging \
-bun run deploy:staging
+vp run deploy:staging
 ```
 
 Deploy production:
@@ -74,7 +74,7 @@ Deploy production:
 ```sh
 AGENT_ARTIFACTS_WRITE_KEY=ap_prod \
 PUBLIC_BASE_URL=https://your-production-worker-url.workers.dev \
-bun run deploy:production
+vp run deploy:production
 ```
 
 Custom domain routing is not managed yet.
@@ -82,9 +82,9 @@ Custom domain routing is not managed yet.
 ## Development
 
 ```sh
-bun run check
-bun run lint
-bun run test -- --run
+vp check
+vp test --run
+vp run test:e2e
 ```
 
 The implementation uses Effect Platform HTTP routing, D1/R2 for Cloudflare metadata/source storage, and Effect Schema/Brand for core domain types.

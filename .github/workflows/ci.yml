@@ -15,24 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.13
+      - name: Install Vite+
+        run: |
+          curl -fsSL https://vite.plus | bash
+          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: vp install --frozen-lockfile
 
-      - name: Typecheck
-        run: bun run check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Format check
-        run: bun run format:check
+      - name: Check
+        run: vp check
 
       - name: Test
-        run: bun run test
+        run: vp test --run
 
   e2e:
     name: playwright e2e
@@ -40,15 +35,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.13
+      - name: Install Vite+
+        run: |
+          curl -fsSL https://vite.plus | bash
+          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: vp install --frozen-lockfile
 
       - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
+        run: vp exec playwright install --with-deps chromium
 
       - name: Run Playwright E2E
-        run: bun run test:e2e
+        run: vp run test:e2e
