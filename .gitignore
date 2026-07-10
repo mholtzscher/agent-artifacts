@@ -5,3 +5,4 @@ bin/
 /data
 /build
 /test-results
+/.direnv
