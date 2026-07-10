@@ -1,11 +1,7 @@
-node_modules/
-dist/
 .env
-.direnv/
+coverage.out
+bin/
 .DS_Store
 /data
-/.tsbuildinfo
 /build
-/.alchemy
 /test-results
-/playwright-report

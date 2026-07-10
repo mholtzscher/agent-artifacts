@@ -1,0 +1,98 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{template "title" .}}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: Canvas;
+        color: CanvasText;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 20px 56px;
+      }
+      a {
+        color: LinkText;
+      }
+      .artifact-card {
+        border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+        border-radius: 12px;
+        padding: 18px;
+        margin: 16px 0;
+      }
+      .metadata {
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 0.92rem;
+      }
+      .artifact-detail-page {
+        height: 100vh;
+        overflow: hidden;
+      }
+      .artifact-shell {
+        height: 100vh;
+        overflow: hidden;
+      }
+      .artifact-banner {
+        height: 48px;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        padding: 0 16px;
+        border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        background: Canvas;
+      }
+      .artifact-back,
+      .artifact-source-link {
+        font-size: 0.875rem;
+        white-space: nowrap;
+        text-decoration: none;
+      }
+      .artifact-title {
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .artifact-preview {
+        box-sizing: border-box;
+        width: 100%;
+        height: calc(100vh - 48px);
+        margin: 0;
+        padding: 0;
+        overflow: auto;
+      }
+      .artifact-preview > article {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 100%;
+        padding: 24px;
+      }
+      .source-frame {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: white;
+      }
+      pre,
+      code {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  {{template "body" .}}
+</html>
+{{end}}

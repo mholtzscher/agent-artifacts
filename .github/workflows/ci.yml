@@ -15,36 +15,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Vite+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Check formatting and generated code
         run: |
-          curl -fsSL https://vite.plus | bash
-          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      - name: Check
-        run: vp check
+          test -z "$(find . -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+          go tool sqlc generate
+          git diff --exit-code -- internal/postgres
 
       - name: Test
-        run: vp test --run
+        run: go test ./...
 
-  e2e:
-    name: playwright e2e
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Vet
+        run: go vet ./...
 
-      - name: Install Vite+
-        run: |
-          curl -fsSL https://vite.plus | bash
-          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      - name: Install Chromium
-        run: vp exec playwright install --with-deps chromium
-
-      - name: Run Playwright E2E
-        run: vp run test:e2e
+      - name: Build container
+        run: docker build .

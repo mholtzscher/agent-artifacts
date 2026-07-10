@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Runs the same checks as CI in order. On success, prints a one-line marker
 # per step. On failure, prints the marker and the full output of the failing
-# step, then exits non-zero. Designed to be token-efficient for agent use
-# while still giving agents enough information to diagnose failures.
+# step, then exits non-zero. Designed to be token-efficient for agent use.
 set -u
 
 cd "$(dirname "$0")/.." || exit 1
@@ -20,6 +19,8 @@ run_step() {
   return "$code"
 }
 
-run_step check vp check || exit 1
-run_step test  vp test --run || exit 1
-run_step e2e   vp run test:e2e || exit 1
+run_step format bash -c 'files=$(find . -type f -name "*.go" -print0 | xargs -0 gofmt -l); if [ -n "$files" ]; then printf "%s\n" "$files"; exit 1; fi' || exit 1
+run_step generate bash -c 'go tool sqlc generate && git diff --exit-code -- internal/postgres' || exit 1
+run_step test go test ./... || exit 1
+run_step vet go vet ./... || exit 1
+run_step docker docker build -q . || exit 1
