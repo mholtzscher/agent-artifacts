@@ -1,16 +1,17 @@
-package migrations
+package db
 
 import (
 	"context"
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
-//go:embed *.sql
+//go:embed migrations/*.sql
 var files embed.FS
 
 func Apply(ctx context.Context, databaseURL string) error {
@@ -21,7 +22,12 @@ func Apply(ctx context.Context, databaseURL string) error {
 	defer database.Close()
 	database.SetMaxOpenConns(1)
 
-	provider, err := goose.NewProvider(goose.DialectPostgres, database, files)
+	migrationFiles, err := fs.Sub(files, "migrations")
+	if err != nil {
+		return fmt.Errorf("load migration files: %w", err)
+	}
+
+	provider, err := goose.NewProvider(goose.DialectPostgres, database, migrationFiles)
 	if err != nil {
 		return fmt.Errorf("create migration provider: %w", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/mholtzscher/agent-artifacts/internal/artifact"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts"
 	"github.com/yuin/goldmark"
 )
 
@@ -20,20 +20,20 @@ var (
 )
 
 type artifactView struct {
-	Artifact         artifact.Artifact
+	Artifact         artifacts.Artifact
 	RenderedMarkdown template.HTML
 	HTMLSource       string
 	IsMarkdown       bool
 }
 
 type feedItem struct {
-	Artifact    artifact.Artifact
+	Artifact    artifacts.Artifact
 	Description string
 	CreatedAt   string
 }
 
-func ArtifactPage(value artifact.Artifact, source []byte) ([]byte, error) {
-	view := artifactView{Artifact: value, IsMarkdown: value.SourceType == artifact.SourceTypeMarkdown}
+func ArtifactPage(value artifacts.Artifact, source []byte) ([]byte, error) {
+	view := artifactView{Artifact: value, IsMarkdown: value.SourceType == artifacts.SourceTypeMarkdown}
 	if view.IsMarkdown {
 		var rendered bytes.Buffer
 		if err := markdownRenderer.Convert(source, &rendered); err != nil {
@@ -51,7 +51,7 @@ func ArtifactPage(value artifact.Artifact, source []byte) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-func FeedPage(values []artifact.Artifact) ([]byte, error) {
+func FeedPage(values []artifacts.Artifact) ([]byte, error) {
 	items := make([]feedItem, 0, len(values))
 	for _, value := range values {
 		description := ""

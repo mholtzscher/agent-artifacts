@@ -1,4 +1,4 @@
-package httpapi_test
+package api_test
 
 import (
 	"bytes"
@@ -14,11 +14,10 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mholtzscher/agent-artifacts/internal/access"
-	"github.com/mholtzscher/agent-artifacts/internal/httpapi"
-	"github.com/mholtzscher/agent-artifacts/internal/postgres"
-	"github.com/mholtzscher/agent-artifacts/internal/publication"
-	"github.com/mholtzscher/agent-artifacts/internal/sourcefs"
+	"github.com/mholtzscher/agent-artifacts/internal/app"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts/sourcefs"
+	"github.com/mholtzscher/agent-artifacts/internal/platform/db/sqlc"
 	"github.com/mholtzscher/agent-artifacts/internal/testsupport"
 )
 
@@ -192,10 +191,9 @@ func newTestServer(t *testing.T, maxUploadBytes int64) *httptest.Server {
 	if err != nil {
 		t.Fatalf("create source store: %v", err)
 	}
-	queries := postgres.New(pool)
-	handler := httpapi.New(httpapi.Dependencies{
-		Publisher:      publication.New(queries, sources),
-		Artifacts:      access.New(queries, sources),
+	queries := sqlc.New(pool)
+	handler := app.NewServer(app.ServerDeps{
+		Artifacts:      artifacts.NewService(artifacts.NewSQLRepository(queries), sources),
 		WriteKey:       "ap_test",
 		MaxUploadBytes: maxUploadBytes,
 		Ready:          func(context.Context) bool { return true },

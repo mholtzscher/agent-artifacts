@@ -9,19 +9,19 @@ export APP_PORT="${APP_PORT:-18080}"
 fixture=$(mktemp)
 cleanup() {
   rm -f "$fixture"
-  docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker compose -f deployments/compose.yaml down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-docker compose up -d --build
+docker compose -f deployments/compose.yaml up -d --build
 for attempt in $(seq 1 60); do
-  status=$(docker compose ps --format json | jq -rs '[.[] | select(.Service == "app")][0].Health // ""')
+  status=$(docker compose -f deployments/compose.yaml ps --format json | jq -rs '[.[] | select(.Service == "app")][0].Health // ""')
   if [[ "$status" == "healthy" ]]; then
     break
   fi
   if [[ "$attempt" == "60" ]]; then
-    docker compose ps
-    docker compose logs app
+    docker compose -f deployments/compose.yaml ps
+    docker compose -f deployments/compose.yaml logs app
     exit 1
   fi
   sleep 1
@@ -36,13 +36,13 @@ slug=$(printf '%s' "$published" | jq -r .slug)
 test -n "$slug"
 test "$(curl -fsS "http://127.0.0.1:${APP_PORT}/source/${slug}")" = "$(cat "$fixture")"
 
-docker compose restart app >/dev/null
+docker compose -f deployments/compose.yaml restart app >/dev/null
 for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${APP_PORT}/readyz" >/dev/null 2>&1; then
     break
   fi
   if [[ "$attempt" == "30" ]]; then
-    docker compose logs app
+    docker compose -f deployments/compose.yaml logs app
     exit 1
   fi
   sleep 1

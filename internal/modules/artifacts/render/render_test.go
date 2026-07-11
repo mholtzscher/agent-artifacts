@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mholtzscher/agent-artifacts/internal/artifact"
-	"github.com/mholtzscher/agent-artifacts/internal/render"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts/render"
 )
 
 func TestArtifactPageRendersMarkdownWithoutRawHTML(t *testing.T) {
-	value := testArtifact(artifact.SourceTypeMarkdown)
+	value := testArtifact(artifacts.SourceTypeMarkdown)
 	value.Title = `<script>alert("title")</script>`
 
 	page, err := render.ArtifactPage(value, []byte("# Hello\n\n<script>alert('source')</script>"))
@@ -31,7 +31,7 @@ func TestArtifactPageRendersMarkdownWithoutRawHTML(t *testing.T) {
 }
 
 func TestArtifactPageSandboxesHTMLWithoutSameOrigin(t *testing.T) {
-	value := testArtifact(artifact.SourceTypeHTML)
+	value := testArtifact(artifacts.SourceTypeHTML)
 
 	page, err := render.ArtifactPage(value, []byte(`<h1>Report</h1><script>window.parent.document.body.remove()</script>`))
 	if err != nil {
@@ -49,8 +49,8 @@ func TestArtifactPageSandboxesHTMLWithoutSameOrigin(t *testing.T) {
 	}
 }
 
-func testArtifact(sourceType artifact.SourceType) artifact.Artifact {
-	return artifact.Artifact{
+func testArtifact(sourceType artifacts.SourceType) artifacts.Artifact {
+	return artifacts.Artifact{
 		ID:             uuid.MustParse("62c610a1-67d9-4ea6-b9da-6b793d107b79"),
 		Slug:           "test-artifact-1a2b3c4d",
 		Title:          "Test Artifact",

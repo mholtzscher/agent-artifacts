@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: artifacts.sql
 
-package postgres
+package sqlc
 
 import (
 	"context"
@@ -85,8 +85,12 @@ WHERE slug = $1
 LIMIT 1
 `
 
-func (q *Queries) GetArtifactBySlug(ctx context.Context, slug string) (Artifact, error) {
-	row := q.db.QueryRow(ctx, getArtifactBySlug, slug)
+type GetArtifactBySlugParams struct {
+	Slug string `json:"slug"`
+}
+
+func (q *Queries) GetArtifactBySlug(ctx context.Context, arg GetArtifactBySlugParams) (Artifact, error) {
+	row := q.db.QueryRow(ctx, getArtifactBySlug, arg.Slug)
 	var i Artifact
 	err := row.Scan(
 		&i.ID,
@@ -117,8 +121,12 @@ ORDER BY created_at DESC
 LIMIT $1
 `
 
-func (q *Queries) ListRecentArtifacts(ctx context.Context, limit int32) ([]Artifact, error) {
-	rows, err := q.db.Query(ctx, listRecentArtifacts, limit)
+type ListRecentArtifactsParams struct {
+	Limit int32 `json:"limit"`
+}
+
+func (q *Queries) ListRecentArtifacts(ctx context.Context, arg ListRecentArtifactsParams) ([]Artifact, error) {
+	rows, err := q.db.Query(ctx, listRecentArtifacts, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,7 @@ A single-host Docker application for agent-generated artifacts, using Go, Huma, 
 ```sh
 cp .env.example .env
 # Edit AGENT_ARTIFACTS_WRITE_KEY in .env.
-docker compose up --build
+docker compose --env-file .env -f deployments/compose.yaml up --build
 ```
 
 The app is available at <http://localhost:8080/>. API documentation is at <http://localhost:8080/docs>, and OpenAPI JSON is at <http://localhost:8080/openapi.json>.
@@ -26,13 +26,13 @@ Compose persists PostgreSQL metadata in `postgres_data` and immutable artifact s
 Stop without deleting data:
 
 ```sh
-docker compose down
+docker compose --env-file .env -f deployments/compose.yaml down
 ```
 
 Delete the deployment and all of its data:
 
 ```sh
-docker compose down --volumes
+docker compose --env-file .env -f deployments/compose.yaml down --volumes
 ```
 
 ## Routes
@@ -68,11 +68,11 @@ Requirements: Go 1.25.7+, Docker, and a running Docker daemon for PostgreSQL int
 just generate
 just test
 just vet
-docker build .
+docker build -f deployments/Dockerfile .
 just smoke
 ```
 
-Goose migrations in `migrations/` are embedded into the application and applied before HTTP starts. They are append-only after release. sqlc reads those migrations and `queries/`; generated code in `internal/postgres/` is committed.
+Goose migrations in `internal/platform/db/migrations/` are embedded into the application and applied before HTTP starts. They are append-only after release. sqlc reads those migrations and `internal/platform/db/queries/`; generated code in `internal/platform/db/sqlc/` is committed.
 
 ## Operational scope
 

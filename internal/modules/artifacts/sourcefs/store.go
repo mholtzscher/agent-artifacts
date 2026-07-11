@@ -10,13 +10,10 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
-	"github.com/mholtzscher/agent-artifacts/internal/artifact"
+	"github.com/mholtzscher/agent-artifacts/internal/modules/artifacts"
 )
 
-type Info struct {
-	SHA256    string
-	SizeBytes int64
-}
+type Info = artifacts.SourceInfo
 
 type Store struct {
 	artifactsDir string
@@ -42,7 +39,7 @@ func New(dataDir string) (*Store, error) {
 	return &Store{artifactsDir: artifactsDir}, nil
 }
 
-func (s *Store) Write(ctx context.Context, id uuid.UUID, sourceType artifact.SourceType, source io.Reader) (Info, error) {
+func (s *Store) Write(ctx context.Context, id uuid.UUID, sourceType artifacts.SourceType, source io.Reader) (Info, error) {
 	extension, err := extensionFor(sourceType)
 	if err != nil {
 		return Info{}, err
@@ -90,7 +87,7 @@ func (s *Store) Write(ctx context.Context, id uuid.UUID, sourceType artifact.Sou
 	return Info{SHA256: hex.EncodeToString(hash.Sum(nil)), SizeBytes: size}, nil
 }
 
-func (s *Store) Read(_ context.Context, id uuid.UUID, sourceType artifact.SourceType) (io.ReadCloser, error) {
+func (s *Store) Read(_ context.Context, id uuid.UUID, sourceType artifacts.SourceType) (io.ReadCloser, error) {
 	path, err := s.pathFor(id, sourceType)
 	if err != nil {
 		return nil, err
@@ -102,7 +99,7 @@ func (s *Store) Read(_ context.Context, id uuid.UUID, sourceType artifact.Source
 	return file, nil
 }
 
-func (s *Store) Remove(id uuid.UUID, sourceType artifact.SourceType) error {
+func (s *Store) Remove(id uuid.UUID, sourceType artifacts.SourceType) error {
 	path, err := s.pathFor(id, sourceType)
 	if err != nil {
 		return err
@@ -116,7 +113,7 @@ func (s *Store) Remove(id uuid.UUID, sourceType artifact.SourceType) error {
 	return nil
 }
 
-func (s *Store) pathFor(id uuid.UUID, sourceType artifact.SourceType) (string, error) {
+func (s *Store) pathFor(id uuid.UUID, sourceType artifacts.SourceType) (string, error) {
 	extension, err := extensionFor(sourceType)
 	if err != nil {
 		return "", err
@@ -124,11 +121,11 @@ func (s *Store) pathFor(id uuid.UUID, sourceType artifact.SourceType) (string, e
 	return filepath.Join(s.artifactsDir, id.String(), "source"+extension), nil
 }
 
-func extensionFor(sourceType artifact.SourceType) (string, error) {
+func extensionFor(sourceType artifacts.SourceType) (string, error) {
 	switch sourceType {
-	case artifact.SourceTypeMarkdown:
+	case artifacts.SourceTypeMarkdown:
 		return ".md", nil
-	case artifact.SourceTypeHTML:
+	case artifacts.SourceTypeHTML:
 		return ".html", nil
 	default:
 		return "", fmt.Errorf("unsupported source type %q", sourceType)

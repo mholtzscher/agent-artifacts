@@ -1,7 +1,10 @@
+name: agent-artifacts
+
 services:
   app:
     build:
-      context: .
+      context: ..
+      dockerfile: deployments/Dockerfile
     environment:
       DATABASE_URL: postgres://agent_artifacts:agent_artifacts@postgres:5432/agent_artifacts?sslmode=disable
       AGENT_ARTIFACTS_WRITE_KEY: ${AGENT_ARTIFACTS_WRITE_KEY:?set AGENT_ARTIFACTS_WRITE_KEY}

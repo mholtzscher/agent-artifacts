@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mholtzscher/agent-artifacts/migrations"
+	"github.com/mholtzscher/agent-artifacts/internal/platform/db"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -33,7 +33,7 @@ func StartPostgres(t testing.TB) string {
 	if err != nil {
 		t.Fatalf("database connection string: %v", err)
 	}
-	if err := migrations.Apply(ctx, databaseURL); err != nil {
+	if err := db.Apply(ctx, databaseURL); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 	return databaseURL
