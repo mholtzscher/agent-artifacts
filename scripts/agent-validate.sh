@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Runs the same checks as CI in order. On success, prints a one-line marker
 # per step. On failure, prints the marker and the full output of the failing
-# step, then exits non-zero. Designed to be token-efficient for agent use
-# while still giving agents enough information to diagnose failures.
+# step, then exits non-zero. Designed to be token-efficient for agent use.
 set -u
 
 cd "$(dirname "$0")/.." || exit 1
@@ -20,6 +19,8 @@ run_step() {
   return "$code"
 }
 
-run_step check vp check || exit 1
-run_step test  vp test --run || exit 1
-run_step e2e   vp run test:e2e || exit 1
+run_step format just format || exit 1
+run_step generate just generate-check || exit 1
+run_step test just test || exit 1
+run_step vet just vet || exit 1
+run_step docker just docker || exit 1

@@ -1,8 +1,4 @@
-node_modules
-build
-.tsbuildinfo
 .git
-.pi
-data
-scratchpad
-*.log
+.env
+coverage.out
+bin/

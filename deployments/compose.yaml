@@ -1,0 +1,41 @@
+name: agent-artifacts
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    environment:
+      DATABASE_URL: postgres://agent_artifacts:agent_artifacts@postgres:5432/agent_artifacts?sslmode=disable
+      AGENT_ARTIFACTS_WRITE_KEY: ${AGENT_ARTIFACTS_WRITE_KEY:?set AGENT_ARTIFACTS_WRITE_KEY}
+      DATA_DIR: /data
+      LISTEN_ADDR: :8080
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - artifact_sources:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: agent_artifacts
+      POSTGRES_USER: agent_artifacts
+      POSTGRES_PASSWORD: agent_artifacts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_artifacts -d agent_artifacts"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  artifact_sources:
+  postgres_data:

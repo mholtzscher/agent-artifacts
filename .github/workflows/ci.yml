@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   verify:
@@ -15,36 +16,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Vite+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Check formatting and generated code
         run: |
-          curl -fsSL https://vite.plus | bash
-          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      - name: Check
-        run: vp check
+          test -z "$(find . -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+          go tool sqlc generate
+          git diff --exit-code -- internal/postgres
 
       - name: Test
-        run: vp test --run
+        run: go test ./...
 
-  e2e:
-    name: playwright e2e
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Vet
+        run: go vet ./...
 
-      - name: Install Vite+
-        run: |
-          curl -fsSL https://vite.plus | bash
-          echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
+      - name: Docker metadata
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+            type=sha,prefix=main-,enable=${{ github.event_name == 'push' }}
 
-      - name: Install Chromium
-        run: vp exec playwright install --with-deps chromium
-
-      - name: Run Playwright E2E
-        run: vp run test:e2e
+      - name: Build and push container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployments/Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}

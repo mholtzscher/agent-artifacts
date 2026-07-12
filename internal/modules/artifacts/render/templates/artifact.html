@@ -1,0 +1,16 @@
+{{define "title"}}{{.Artifact.Title}}{{end}} {{define "body"}}
+<body class="artifact-detail-page">
+  <div class="artifact-shell">
+    <header class="artifact-banner">
+      <a class="artifact-back" href="/">← Recent artifacts</a>
+      <h1 class="artifact-title">{{.Artifact.Title}}</h1>
+      <a class="artifact-source-link" href="/source/{{.Artifact.Slug}}">Source</a>
+    </header>
+    <main class="artifact-preview">
+      {{if .IsMarkdown}}
+      <article>{{.RenderedMarkdown}}</article>
+      {{else}}<iframe class="source-frame" sandbox="allow-scripts" srcdoc="{{.HTMLSource}}"></iframe>{{end}}
+    </main>
+  </div>
+</body>
+{{end}}
