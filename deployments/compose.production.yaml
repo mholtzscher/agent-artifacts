@@ -1,0 +1,72 @@
+name: agent-artifacts
+
+services:
+  app:
+    image: ${APP_IMAGE:-ghcr.io/mholtzscher/agent-artifacts:latest}
+    pull_policy: always
+    environment:
+      DATABASE_URL: postgres://agent_artifacts:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/agent_artifacts?sslmode=disable
+      AGENT_ARTIFACTS_WRITE_KEY: ${AGENT_ARTIFACTS_WRITE_KEY:?set AGENT_ARTIFACTS_WRITE_KEY}
+      DATA_DIR: /data
+      LISTEN_ADDR: :8080
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    volumes:
+      - artifact_sources:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  postgres:
+    image: postgres:17-alpine
+    pull_policy: always
+    environment:
+      POSTGRES_DB: agent_artifacts
+      POSTGRES_USER: agent_artifacts
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_artifacts -d agent_artifacts"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    shm_size: 128mb
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  artifact_sources:
+  postgres_data:
+
+networks:
+  default:
+    name: agent-artifacts

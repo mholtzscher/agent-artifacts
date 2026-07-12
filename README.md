@@ -35,6 +35,36 @@ Delete the deployment and all of its data:
 docker compose --env-file .env -f deployments/compose.yaml down --volumes
 ```
 
+## Production deployment
+
+`deployments/compose.production.yaml` pulls a registry image, binds the HTTP port to localhost for a host-managed Cloudflare Tunnel, and stores data in Docker named volumes.
+
+Set these production values in `.env`:
+
+```dotenv
+# Optional; defaults to ghcr.io/mholtzscher/agent-artifacts:latest
+APP_IMAGE=ghcr.io/mholtzscher/agent-artifacts:1.0.0
+POSTGRES_PASSWORD=replace_with_a_long_url_safe_password
+AGENT_ARTIFACTS_WRITE_KEY=replace_with_a_long_random_key
+PUBLIC_BASE_URL=https://artifacts.example.com
+APP_PORT=8080
+```
+
+The default image is `ghcr.io/mholtzscher/agent-artifacts:latest`; overriding `APP_IMAGE` with an immutable release tag or image digest makes deployments repeatable. Because the database password is embedded in a URL, generate it from URL-safe characters. Keep `.env` readable only by the deployment user.
+
+Start the stack:
+
+```sh
+chmod 600 .env
+docker compose --env-file .env -f deployments/compose.production.yaml pull
+docker compose --env-file .env -f deployments/compose.production.yaml up -d
+docker compose --env-file .env -f deployments/compose.production.yaml ps
+```
+
+Configure the Cloudflare Tunnel origin as `http://localhost:8080`. PostgreSQL is not published, and the application port accepts host-local connections only.
+
+The `artifact_sources` and `postgres_data` named volumes persist across container recreation and `docker compose down`; do not pass `--volumes` in production. Back up artifact files from the named volume and use `pg_dump` for PostgreSQL rather than copying its live data directory. Test restores periodically. The memory limits in the production file are conservative defaults and should be adjusted to the server and workload.
+
 ## Routes
 
 - `GET /` — recent server-rendered feed
